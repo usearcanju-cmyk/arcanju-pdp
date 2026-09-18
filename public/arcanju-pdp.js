@@ -1,12 +1,12 @@
 /* ==========================================================================
-   Use Arcanju — Melhorias da página de produto (PDP)  |  v2
-   Prefixo de classe: apdp-  (não colide com o widget "Compartilhe seu look")
+   Use Arcanju — Melhorias da página de produto (PDP)  |  v3
+   Prefixo: apdp-   ·   Frete por CEP (ViaCEP, gratuito e ilimitado)
    ========================================================================== */
 (function () {
   'use strict';
 
-  if (window.__ARCANJU_PDP_V2__) return;
-  window.__ARCANJU_PDP_V2__ = true;
+  if (window.__ARCANJU_PDP_V3__) return;
+  window.__ARCANJU_PDP_V3__ = true;
 
   /* =========================================================================
      CONFIGURAÇÃO
@@ -20,10 +20,9 @@
       'Modelagem unissex',
       'Estampa que não racha'
     ],
-    corteHora: 16,          // horário limite para sair no mesmo dia útil
-    corteMinuto: 0,
+    janelaHoras: 2,          // duração da oferta por visitante
     removerBreadcrumb: true,
-    espaco: 14,             // espaçamento vertical uniforme (px)
+    espaco: 16,              // espaçamento vertical uniforme (px)
     promo: {
       meta: 2,
       textoVazio: 'Leve 2 camisetas e ganhe frete grátis, capelinha, sacolinha e R$ 29 de desconto',
@@ -43,7 +42,7 @@
     }
   };
 
-  /* Tabela de frete: UF -> [preço, dias úteis mínimo, dias úteis máximo] */
+  /* UF -> [preço, dias úteis mín, dias úteis máx] */
   var FRETE = {
     AC: [29.9, 18, 19], AL: [17.9, 17, 20], AP: [25.9, 17, 20], AM: [29.9, 15, 20],
     BA: [15.9, 13, 15], CE: [15.9, 13, 17], DF: [16.9, 5, 9],   ES: [17.9, 9, 14],
@@ -53,7 +52,6 @@
     RS: [16.9, 6, 11],  RO: [36.9, 12, 16], RR: [26.9, 23, 27], SC: [17.9, 7, 13],
     SP: [14.9, 5, 9],   SE: [15.9, 9, 15],  TO: [19.9, 7, 15]
   };
-  var FRETE_PADRAO = [17.9, 9, 15];
 
   /* =========================================================================
      Helpers
@@ -69,10 +67,7 @@
   }
 
   function firstOf(list) {
-    for (var i = 0; i < list.length; i++) {
-      var f = $(list[i]);
-      if (f) return f;
-    }
+    for (var i = 0; i < list.length; i++) { var f = $(list[i]); if (f) return f; }
     return null;
   }
 
@@ -83,24 +78,24 @@
     })[0] || null;
   }
 
-  function brl(v) {
-    return 'R$ ' + v.toFixed(2).replace('.', ',');
-  }
+  function brl(v) { return 'R$ ' + v.toFixed(2).replace('.', ','); }
 
   function diasUteis(n) {
-    var d = new Date();
-    var contados = 0;
-    while (contados < n) {
-      d.setDate(d.getDate() + 1);
-      if (d.getDay() !== 0 && d.getDay() !== 6) contados++;
-    }
+    var d = new Date(), c = 0;
+    while (c < n) { d.setDate(d.getDate() + 1); if (d.getDay() !== 0 && d.getDay() !== 6) c++; }
     return d;
   }
 
   var MESES = ['janeiro','fevereiro','março','abril','maio','junho',
                'julho','agosto','setembro','outubro','novembro','dezembro'];
-
   function dataCurta(d) { return d.getDate() + ' de ' + MESES[d.getMonth()]; }
+
+  function ls(k, v) {
+    try {
+      if (v === undefined) return localStorage.getItem(k);
+      localStorage.setItem(k, v);
+    } catch (e) { return null; }
+  }
 
   /* =========================================================================
      CSS
@@ -109,31 +104,30 @@
     if ($('#apdp-css')) return;
     var c = CFG.cores, gap = CFG.espaco;
     var css = `
-    .apdp { font-family: inherit; box-sizing: border-box; }
-    .apdp + .apdp { margin-top: ${gap}px; }
-    #apdp-rating { margin: ${gap}px 0 6px; }
-    #apdp-social { margin: 0 0 ${gap}px; }
+    .apdp { font-family:inherit; box-sizing:border-box; }
+    .apdp, .apdp * { box-sizing:border-box; }
 
-    .apdp-rating {
-      display:flex; align-items:center; gap:8px; flex-wrap:wrap;
-      text-decoration:none; cursor:pointer;
-    }
+    /* Espaçamento uniforme — sobrescreve as margens do tema */
+    #apdp-rating  { margin:${gap}px 0 6px !important; }
+    #apdp-social  { margin:0 0 ${gap}px !important; }
+    #apdp-bullets { margin:${gap}px 0 !important; }
+    #apdp-frete   { margin:${gap}px 0 !important; }
+    #apdp-promo   { margin:${gap}px 0 ${gap}px !important; }
+    #apdp-selos   { margin:12px 0 ${gap}px !important; }
+
+    .apdp-rating { display:flex; align-items:center; gap:8px; flex-wrap:wrap;
+      text-decoration:none; cursor:pointer; }
     .apdp-rating:hover .apdp-rating__link { text-decoration:underline; }
     .apdp-rating__stars { color:${c.vinho}; letter-spacing:1px; font-size:15px; line-height:1; }
     .apdp-rating__nota { font-weight:700; color:${c.texto}; font-size:14px; }
     .apdp-rating__link { color:${c.cinza}; font-size:14px; }
 
-    .apdp-social {
-      display:flex; align-items:center; gap:6px;
-      font-size:13px; color:${c.texto};
-    }
+    .apdp-social { display:flex; align-items:center; gap:6px; font-size:13px; color:${c.texto}; }
     .apdp-social b { font-weight:600; }
 
     .apdp-bullets { list-style:none; padding:0; display:grid; gap:9px; }
-    .apdp-bullets li {
-      display:flex; align-items:flex-start; gap:9px;
-      font-size:14px; color:${c.texto}; line-height:1.35;
-    }
+    .apdp-bullets li { display:flex; align-items:flex-start; gap:9px;
+      font-size:14px; color:${c.texto}; line-height:1.35; }
     .apdp-bullets li::before {
       content:''; flex:0 0 16px; height:16px; margin-top:1px; border-radius:50%;
       background:${c.verdeFundo}; box-shadow:inset 0 0 0 1.5px ${c.verde};
@@ -141,73 +135,68 @@
       background-size:10px 10px; background-repeat:no-repeat; background-position:center;
     }
 
-    .apdp-card {
-      border:1px solid ${c.borda}; border-radius:10px;
-      padding:12px 14px; background:${c.creme};
-      display:flex; gap:10px; align-items:flex-start;
-    }
+    .apdp-card { border:1px solid ${c.borda}; border-radius:10px; padding:12px 14px;
+      background:${c.creme}; display:flex; gap:10px; align-items:flex-start; }
     .apdp-card__ico { flex:0 0 20px; margin-top:1px; line-height:0; }
     .apdp-card__corpo { flex:1 1 auto; min-width:0; }
-    .apdp-card__txt { font-size:14px; line-height:1.5; color:${c.texto}; }
+    .apdp-card__txt { font-size:14px; line-height:1.5; color:${c.texto}; display:block; }
     .apdp-card__txt b { font-weight:700; }
-    .apdp-frase-verde { color:${c.verde}; font-weight:600; }
+    .apdp-verde { color:${c.verde}; font-weight:600; }
     .apdp-timer { color:${c.vinho}; font-weight:700; font-variant-numeric:tabular-nums; }
-    .apdp-card__sub {
-      display:block; margin-top:5px; font-size:13px; color:${c.cinza}; line-height:1.4;
+    .apdp-card__sub { display:block; margin-top:5px; font-size:13px; color:${c.cinza}; line-height:1.4; }
+
+    /* CEP */
+    .apdp-cep { display:flex; gap:6px; margin-top:8px; flex-wrap:wrap; align-items:center; }
+    .apdp-cep input {
+      flex:1 1 130px; min-width:110px; max-width:170px; height:36px; padding:0 10px;
+      border:1px solid ${c.borda}; border-radius:7px; font-size:14px; font-family:inherit;
+      color:${c.texto}; background:#fff; outline:none;
+    }
+    .apdp-cep input:focus { border-color:${c.vinho}; box-shadow:0 0 0 2px rgba(107,27,34,.12); }
+    .apdp-cep button {
+      height:36px; padding:0 14px; border:0; border-radius:7px; cursor:pointer;
+      background:${c.vinho}; color:#fff; font-size:13px; font-weight:600; font-family:inherit;
+    }
+    .apdp-cep button:disabled { opacity:.6; cursor:default; }
+    .apdp-cep__erro { flex:1 1 100%; font-size:12.5px; color:#B3261E; }
+    .apdp-trocar {
+      background:none; border:0; padding:0; margin-top:6px; cursor:pointer;
+      font-family:inherit; font-size:12.5px; color:${c.cinza}; text-decoration:underline;
     }
 
     .apdp-promo { border-color:${c.vinho}; display:block; }
     .apdp-promo__topo { display:flex; gap:10px; align-items:flex-start; }
     .apdp-promo__txt { font-size:14px; line-height:1.45; color:${c.texto}; }
     .apdp-promo__txt b { color:${c.vinho}; font-weight:700; }
-    .apdp-promo__barra {
-      margin-top:10px; height:8px; border-radius:99px; background:#EDE4E5; overflow:hidden;
-    }
-    .apdp-promo__fill {
-      height:100%; width:0%; border-radius:99px;
+    .apdp-promo__barra { margin-top:10px; height:8px; border-radius:99px;
+      background:#EDE4E5; overflow:hidden; }
+    .apdp-promo__fill { height:100%; width:0%; border-radius:99px;
       background:linear-gradient(90deg, ${c.vinhoClaro}, ${c.vinho});
-      transition:width .45s cubic-bezier(.4,0,.2,1);
-    }
+      transition:width .45s cubic-bezier(.4,0,.2,1); }
     .apdp-promo--ok { border-color:${c.verde}; background:${c.verdeFundo}; }
     .apdp-promo--ok .apdp-promo__fill { background:${c.verde}; }
     .apdp-promo--ok .apdp-promo__txt b { color:${c.verde}; }
     .apdp-frete--ok { border-color:${c.verde}; background:${c.verdeFundo}; }
 
+    /* Selos — bloco inteiro, centralizado abaixo do botão */
     .apdp-selos {
-      display:flex; align-items:center; justify-content:center;
-      gap:8px; flex-wrap:wrap; font-size:13px; color:${c.cinza};
+      width:100% !important; flex:0 0 100% !important; display:flex !important;
+      flex-direction:column; align-items:center; gap:8px; text-align:center;
     }
-    .apdp-selos__txt { display:inline-flex; align-items:center; gap:6px; }
-    .apdp-selos__bandeiras { display:inline-flex; gap:4px; align-items:center; }
-    .apdp-selos__bandeiras img {
-      height:17px; width:auto; display:block; border-radius:2px;
-    }
-    @media (prefers-reduced-motion: reduce) {
-      .apdp-promo__fill { transition:none; }
-    }
+    .apdp-selos__txt { display:inline-flex; align-items:center; gap:6px;
+      font-size:13px; color:${c.cinza}; }
+    .apdp-selos__bandeiras { display:flex; gap:5px; align-items:center;
+      justify-content:center; flex-wrap:wrap; }
+    .apdp-selos__bandeiras svg { display:block; border-radius:3px; }
+
+    @media (prefers-reduced-motion: reduce) { .apdp-promo__fill { transition:none; } }
     `;
     document.head.appendChild(el('style', { id: 'apdp-css' }, css));
   }
 
   /* =========================================================================
-     Estado compartilhado (geo + carrinho)
+     Carrinho
      ========================================================================= */
-  var GEO = { cidade: null, uf: null, pronto: false };
-
-  function carregarGeo(cb) {
-    fetch('https://ipapi.co/json/')
-      .then(function (r) { return r.json(); })
-      .then(function (d) {
-        if (d && d.country_code === 'BR') {
-          GEO.cidade = d.city || null;
-          GEO.uf = (d.region_code || '').toUpperCase() || null;
-        }
-        GEO.pronto = true;
-        cb && cb();
-      })
-      .catch(function () { GEO.pronto = true; cb && cb(); });
-  }
-
   function qtdNoCarrinho() {
     try {
       if (window.LS && LS.cart && Array.isArray(LS.cart.items)) {
@@ -223,13 +212,77 @@
   }
 
   /* =========================================================================
-     1 · Nota + avaliações   2 · Prova social
+     Destino salvo (CEP)
+     ========================================================================= */
+  var DESTINO = null;   // { cep, cidade, uf }
+
+  function carregarDestino() {
+    try {
+      var raw = ls('apdp_destino');
+      if (raw) DESTINO = JSON.parse(raw);
+    } catch (e) { DESTINO = null; }
+  }
+
+  function salvarDestino(d) {
+    DESTINO = d;
+    ls('apdp_destino', JSON.stringify(d));
+  }
+
+  function buscarCEP(cep) {
+    return fetch('https://viacep.com.br/ws/' + cep + '/json/')
+      .then(function (r) { return r.json(); })
+      .then(function (d) {
+        if (!d || d.erro || !d.uf) throw new Error('cep');
+        return { cep: cep, cidade: d.localidade, uf: d.uf };
+      });
+  }
+
+  /* =========================================================================
+     Timer de 2h por visitante
+     ========================================================================= */
+  function fimDaJanela() {
+    var agora = Date.now();
+    var salvo = parseInt(ls('apdp_deadline') || '0', 10);
+    if (!salvo || salvo <= agora) {
+      salvo = agora + CFG.janelaHoras * 3600 * 1000;
+      ls('apdp_deadline', String(salvo));
+    }
+    return salvo;
+  }
+
+  function formatarRestante(ms) {
+    var t = Math.max(0, Math.floor(ms / 1000));
+    var h = Math.floor(t / 3600), m = Math.floor((t % 3600) / 60), s = t % 60;
+    if (h > 0) return h + 'h ' + String(m).padStart(2, '0') + 'min ' + String(s).padStart(2, '0') + 's';
+    return m + 'min ' + String(s).padStart(2, '0') + 's';
+  }
+
+  /* =========================================================================
+     Bandeiras em SVG (não dependem de CDN)
+     ========================================================================= */
+  function bandeiras() {
+    var W = 30, H = 19;
+    function base(inner, bg) {
+      return '<svg width="' + W + '" height="' + H + '" viewBox="0 0 30 19" xmlns="http://www.w3.org/2000/svg">' +
+        '<rect width="30" height="19" rx="3" fill="' + (bg || '#FFFFFF') + '" stroke="#DCD7D2"/>' +
+        inner + '</svg>';
+    }
+    var visa = base('<text x="15" y="13.5" font-family="Helvetica,Arial,sans-serif" font-size="8.5" font-weight="700" font-style="italic" fill="#1A1F71" text-anchor="middle">VISA</text>');
+    var master = base('<circle cx="12.5" cy="9.5" r="5.2" fill="#EB001B"/><circle cx="17.5" cy="9.5" r="5.2" fill="#F79E1B" fill-opacity=".9"/>');
+    var elo = base('<circle cx="10" cy="9.5" r="3" fill="#FFCB05"/><circle cx="15" cy="9.5" r="3" fill="#EF4123"/><circle cx="20" cy="9.5" r="3" fill="#00A4E0"/>');
+    var amex = base('<rect x="1" y="1" width="28" height="17" rx="2.5" fill="#1F72CD"/><text x="15" y="12.5" font-family="Helvetica,Arial,sans-serif" font-size="6" font-weight="700" fill="#fff" text-anchor="middle">AMEX</text>');
+    var hiper = base('<rect x="1" y="1" width="28" height="17" rx="2.5" fill="#B3131B"/><text x="15" y="12.5" font-family="Helvetica,Arial,sans-serif" font-size="5.6" font-weight="700" fill="#fff" text-anchor="middle">HIPER</text>');
+    var pix = base('<path d="M15 4.6l3.2 3.2a2 2 0 0 0 1.4.6h.6l-3.4 3.4a2.5 2.5 0 0 1-3.6 0L9.8 8.4h.6a2 2 0 0 0 1.4-.6L15 4.6zm0 9.8l-3.2-3.2a2 2 0 0 0-1.4-.6h-.6l3.4-3.4a2.5 2.5 0 0 1 3.6 0l3.4 3.4h-.6a2 2 0 0 0-1.4.6L15 14.4z" fill="#32BCAD"/>');
+    var boleto = base('<g fill="#2B2B2B"><rect x="6" y="5" width="1.2" height="9"/><rect x="8.4" y="5" width="2" height="9"/><rect x="11.6" y="5" width="1" height="9"/><rect x="13.8" y="5" width="2.2" height="9"/><rect x="17.2" y="5" width="1" height="9"/><rect x="19.4" y="5" width="1.8" height="9"/><rect x="22.4" y="5" width="1.2" height="9"/></g>');
+    return [visa, master, elo, amex, hiper, pix, boleto].join('');
+  }
+
+  /* =========================================================================
+     1 · Nota   2 · Prova social   3 · Bullets
      ========================================================================= */
   function acharSecaoAvaliacoes() {
-    return firstOf([
-      '#apdp-avaliacoes', '[id*="avaliac"]', '[class*="reviews"]',
-      '[data-store*="reviews"]', '#product-reviews'
-    ]) || byText('h2, h3, .accordion-title, [class*="title"]', 'avalia');
+    return firstOf(['[id*="avaliac"]', '[class*="reviews"]', '[data-store*="reviews"]', '#product-reviews'])
+      || byText('h2, h3, .accordion-title, [class*="title"]', 'avalia');
   }
 
   function montarRating() {
@@ -242,12 +295,9 @@
       e.preventDefault();
       var alvo = acharSecaoAvaliacoes();
       if (!alvo) return;
-      var clicavel = alvo.closest('[data-toggle], .accordion-header, summary') || alvo;
-      try { clicavel.click(); } catch (err) {}
-      window.scrollTo({
-        top: alvo.getBoundingClientRect().top + window.pageYOffset - 80,
-        behavior: 'smooth'
-      });
+      var cl = alvo.closest('[data-toggle], .accordion-header, summary') || alvo;
+      try { cl.click(); } catch (err) {}
+      window.scrollTo({ top: alvo.getBoundingClientRect().top + window.pageYOffset - 80, behavior: 'smooth' });
     });
     return a;
   }
@@ -259,9 +309,6 @@
     );
   }
 
-  /* =========================================================================
-     3 · Bullets
-     ========================================================================= */
   function montarBullets() {
     var ul = el('ul', { class: 'apdp apdp-bullets', id: 'apdp-bullets' });
     CFG.bullets.forEach(function (b) { ul.appendChild(el('li', null, b)); });
@@ -269,106 +316,117 @@
   }
 
   /* =========================================================================
-     4 · Frete real por estado + timer com segundos
+     4 · Frete por CEP
      ========================================================================= */
-  function proximoCorte() {
-    var agora = new Date();
-    var corte = new Date(agora);
-    corte.setHours(CFG.corteHora, CFG.corteMinuto, 0, 0);
-    if (corte <= agora) corte.setDate(corte.getDate() + 1);
-    while (corte.getDay() === 0 || corte.getDay() === 6) {
-      corte.setDate(corte.getDate() + 1);
-      corte.setHours(CFG.corteHora, CFG.corteMinuto, 0, 0);
-    }
-    return corte;
-  }
-
-  function formatarRestante(ms) {
-    var t = Math.max(0, Math.floor(ms / 1000));
-    var h = Math.floor(t / 3600);
-    var m = Math.floor((t % 3600) / 60);
-    var s = t % 60;
-    if (h > 0) return h + 'h ' + String(m).padStart(2, '0') + 'min ' + String(s).padStart(2, '0') + 's';
-    return m + 'min ' + String(s).padStart(2, '0') + 's';
-  }
-
   function montarFrete() {
     var c = CFG.cores;
+    var deadline = fimDaJanela();
+
     var box = el('div', { class: 'apdp apdp-card apdp-frete', id: 'apdp-frete' },
-      '<span class="apdp-card__ico" id="apdp-frete-ico">' +
-      '<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="' + c.vinho + '" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="1" y="3" width="15" height="13"/><polygon points="16 8 20 8 23 11 23 16 16 16 16 8"/><circle cx="5.5" cy="18.5" r="2.5"/><circle cx="18.5" cy="18.5" r="2.5"/></svg>' +
-      '</span>' +
-      '<span class="apdp-card__corpo">' +
-      '<span class="apdp-card__txt" id="apdp-frete-txt"></span>' +
-      '<span class="apdp-card__sub" id="apdp-frete-sub"></span>' +
-      '</span>'
+      '<span class="apdp-card__ico" id="apdp-frete-ico"></span>' +
+      '<span class="apdp-card__corpo" id="apdp-frete-corpo"></span>'
     );
 
-    var alvo = proximoCorte();
-
-    function dadosFrete() {
-      return (GEO.uf && FRETE[GEO.uf]) ? FRETE[GEO.uf] : FRETE_PADRAO;
+    function iconeCaminhao(cor) {
+      return '<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="' + cor +
+        '" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="1" y="3" width="15" height="13"/><polygon points="16 8 20 8 23 11 23 16 16 16 16 8"/><circle cx="5.5" cy="18.5" r="2.5"/><circle cx="18.5" cy="18.5" r="2.5"/></svg>';
     }
 
-    function localTexto() {
-      if (GEO.cidade && GEO.uf) return GEO.cidade + ', ' + GEO.uf + ' e região';
-      if (GEO.cidade) return GEO.cidade + ' e região';
-      if (GEO.uf) return GEO.uf + ' e região';
-      return 'sua região';
+    function viewFormulario(erro) {
+      $('#apdp-frete-ico').innerHTML = iconeCaminhao(c.vinho);
+      $('#apdp-frete-corpo').innerHTML =
+        '<span class="apdp-card__txt">Calcule o frete e o prazo para o seu endereço</span>' +
+        '<span class="apdp-cep">' +
+        '<input type="tel" inputmode="numeric" maxlength="9" placeholder="Seu CEP" id="apdp-cep-input">' +
+        '<button type="button" id="apdp-cep-btn">Calcular</button>' +
+        (erro ? '<span class="apdp-cep__erro">' + erro + '</span>' : '') +
+        '</span>';
+
+      var input = $('#apdp-cep-input');
+      var btn = $('#apdp-cep-btn');
+
+      input.addEventListener('input', function () {
+        var v = input.value.replace(/\D/g, '').slice(0, 8);
+        input.value = v.length > 5 ? v.slice(0, 5) + '-' + v.slice(5) : v;
+      });
+      input.addEventListener('keydown', function (e) {
+        if (e.key === 'Enter') { e.preventDefault(); enviar(); }
+      });
+      btn.addEventListener('click', enviar);
+
+      function enviar() {
+        var cep = input.value.replace(/\D/g, '');
+        if (cep.length !== 8) { viewFormulario('Digite os 8 números do CEP'); return; }
+        btn.disabled = true;
+        btn.textContent = '...';
+        buscarCEP(cep)
+          .then(function (d) {
+            if (!FRETE[d.uf]) throw new Error('uf');
+            salvarDestino(d);
+            render();
+          })
+          .catch(function () { viewFormulario('Não encontramos esse CEP. Confira e tente de novo.'); });
+      }
     }
 
-    function render() {
-      var txt = $('#apdp-frete-txt');
-      var sub = $('#apdp-frete-sub');
-      var ico = $('#apdp-frete-ico');
-      if (!txt) return;
-
+    function viewResultado() {
+      var d = FRETE[DESTINO.uf];
       var gratis = qtdNoCarrinho() >= CFG.promo.meta;
-      var d = dadosFrete();
+      var local = DESTINO.cidade + ', ' + DESTINO.uf + ' e região';
+      var restante = deadline - Date.now();
+      if (restante <= 0) { deadline = fimDaJanela(); restante = deadline - Date.now(); }
 
-      var restante = alvo - new Date();
-      if (restante <= 0) { alvo = proximoCorte(); restante = alvo - new Date(); }
+      $('#apdp-frete-ico').innerHTML = iconeCaminhao(gratis ? c.verde : c.vinho);
+      box.classList.toggle('apdp-frete--ok', gratis);
 
-      if (gratis) {
-        box.classList.add('apdp-frete--ok');
-        ico.innerHTML = '<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="' + c.verde + '" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="1" y="3" width="15" height="13"/><polygon points="16 8 20 8 23 11 23 16 16 16 16 8"/><circle cx="5.5" cy="18.5" r="2.5"/><circle cx="18.5" cy="18.5" r="2.5"/></svg>';
-        txt.innerHTML = '<b class="apdp-frase-verde">' + CFG.promo.freteGratis + '</b> — enviamos para ' +
-          '<span class="apdp-frase-verde">' + localTexto() + '</span>';
-      } else {
-        box.classList.remove('apdp-frete--ok');
-        ico.innerHTML = '<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="' + c.vinho + '" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="1" y="3" width="15" height="13"/><polygon points="16 8 20 8 23 11 23 16 16 16 16 8"/><circle cx="5.5" cy="18.5" r="2.5"/><circle cx="18.5" cy="18.5" r="2.5"/></svg>';
-        txt.innerHTML =
-          'Frete de <b>' + brl(d[0]) + '</b> comprando em ' +
+      var principal = gratis
+        ? '<b class="apdp-verde">' + CFG.promo.freteGratis + '</b> — enviamos para ' +
+          '<span class="apdp-verde">' + local + '</span>'
+        : 'Frete de <b>' + brl(d[0]) + '</b> comprando em ' +
           '<span class="apdp-timer" id="apdp-timer">' + formatarRestante(restante) + '</span> para ' +
-          '<span class="apdp-frase-verde">' + localTexto() + '</span>';
-      }
+          '<span class="apdp-verde">' + local + '</span>';
 
-      if (sub) {
-        sub.textContent = 'Chegará entre ' + dataCurta(diasUteis(d[1])) +
-          ' e ' + dataCurta(diasUteis(d[2])) + '*';
-      }
+      $('#apdp-frete-corpo').innerHTML =
+        '<span class="apdp-card__txt">' + principal + '</span>' +
+        '<span class="apdp-card__sub">Chegará entre ' + dataCurta(diasUteis(d[1])) +
+        ' e ' + dataCurta(diasUteis(d[2])) + '*</span>' +
+        '<button type="button" class="apdp-trocar" id="apdp-trocar">Trocar CEP</button>';
+
+      $('#apdp-trocar').addEventListener('click', function () {
+        DESTINO = null;
+        try { localStorage.removeItem('apdp_destino'); } catch (e) {}
+        viewFormulario();
+      });
     }
 
-    function tickTimer() {
-      var t = $('#apdp-timer');
-      if (!t) return;
-      var restante = alvo - new Date();
-      if (restante <= 0) { alvo = proximoCorte(); restante = alvo - new Date(); }
-      t.textContent = formatarRestante(restante);
+    var ultimoEstado = '';
+    function render() {
+      if (!DESTINO || !FRETE[DESTINO.uf]) {
+        if (ultimoEstado !== 'form') { ultimoEstado = 'form'; viewFormulario(); }
+        return;
+      }
+      var chave = DESTINO.cep + '|' + (qtdNoCarrinho() >= CFG.promo.meta);
+      if (chave !== ultimoEstado) { ultimoEstado = chave; viewResultado(); }
     }
 
     setTimeout(function () {
       render();
-      setInterval(tickTimer, 1000);   // segundos correndo
-      setInterval(render, 1500);      // reage a mudança de carrinho
-      if (!GEO.pronto) carregarGeo(render); else render();
+      setInterval(function () {
+        var t = $('#apdp-timer');
+        if (t) {
+          var r = deadline - Date.now();
+          if (r <= 0) { deadline = fimDaJanela(); r = deadline - Date.now(); }
+          t.textContent = formatarRestante(r);
+        }
+      }, 1000);
+      setInterval(render, 1500);
     }, 0);
 
     return box;
   }
 
   /* =========================================================================
-     5 · Barra da promoção de 2 camisetas
+     5 · Promoção de 2 camisetas
      ========================================================================= */
   function montarPromo() {
     var box = el('div', { class: 'apdp apdp-card apdp-promo', id: 'apdp-promo' },
@@ -406,71 +464,49 @@
   }
 
   /* =========================================================================
-     6 · Selos de segurança + bandeiras na mesma linha
+     6 · Selos centralizados abaixo do botão
      ========================================================================= */
   function montarSelos() {
-    var c = CFG.cores;
-    var base = 'https://d26lpennugtm8s.cloudfront.net/assets/common/img/payment-icons/';
-    var bandeiras = [
-      ['Visa', 'visa.svg'], ['Mastercard', 'mastercard.svg'], ['Elo', 'elo.svg'],
-      ['American Express', 'amex.svg'], ['Pix', 'pix.svg'], ['Boleto', 'boleto.svg']
-    ];
-    var imgs = bandeiras.map(function (b) {
-      return '<img src="' + base + b[1] + '" alt="' + b[0] + '" loading="lazy" ' +
-             'onerror="this.style.display=\'none\'">';
-    }).join('');
-
     return el('div', { class: 'apdp apdp-selos', id: 'apdp-selos' },
       '<span class="apdp-selos__txt">' +
-      '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="' + c.verde + '" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>' +
+      '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="' + CFG.cores.verde + '" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>' +
       'Compra segura · Seus dados protegidos' +
       '</span>' +
-      '<span class="apdp-selos__bandeiras">' + imgs + '</span>'
+      '<span class="apdp-selos__bandeiras">' + bandeiras() + '</span>'
     );
   }
 
   /* =========================================================================
-     7 · Remover breadcrumb
+     7 · Breadcrumb
      ========================================================================= */
   function removerBreadcrumb() {
     if (!CFG.removerBreadcrumb) return;
-    var bc = firstOf([
-      '.breadcrumbs', '.breadcrumb', '[class*="breadcrumb"]',
-      '[data-store="breadcrumb"]', 'nav[aria-label*="readcrumb"]'
-    ]);
+    var bc = firstOf(['.breadcrumbs', '.breadcrumb', '[class*="breadcrumb"]',
+                      '[data-store="breadcrumb"]', 'nav[aria-label*="readcrumb"]']);
     if (bc) bc.style.display = 'none';
   }
 
   /* =========================================================================
-     Pontos de inserção
+     Inserção
      ========================================================================= */
   function acharTitulo() {
-    return firstOf([
-      '[data-store="product-name"]', '.js-product-name', '.product-name',
-      '.product-detail h1', 'h1'
-    ]);
+    return firstOf(['[data-store="product-name"]', '.js-product-name', '.product-name',
+                    '.product-detail h1', 'h1']);
   }
 
   function acharSeletorTamanho() {
-    // Aceita "Tamanho", "Tamanho (Baby Look)", "Cor", etc.
-    var porTexto = byText('label, .form-label, .variation-label, p, span, strong', '^\\s*tamanho');
-    if (porTexto) {
-      return porTexto.closest(
-        '.js-product-variants, [data-component="product-variants"], .form-group, .product-variants'
-      ) || porTexto;
+    var t = byText('label, .form-label, .variation-label, p, span, strong', '^\\s*tamanho');
+    if (t) {
+      return t.closest('.js-product-variants, [data-component="product-variants"], .form-group, .product-variants') || t;
     }
-    return firstOf([
-      '.js-product-variants', '[data-component="product-variants"]',
-      '.product-variants', '.js-product-variants-container'
-    ]);
+    return firstOf(['.js-product-variants', '[data-component="product-variants"]',
+                    '.product-variants', '.js-product-variants-container']);
   }
 
   function acharBotaoComprar() {
-    return firstOf([
-      '.js-addtocart', '[data-store="product-buy-button"]',
-      'input[name="add_to_cart"]', '.js-prod-submit-form button[type="submit"]',
-      '.product-buy button'
-    ]);
+    return firstOf(['.js-addtocart', '[data-store="product-buy-button"]',
+                    'input[name="add_to_cart"]', '.js-prod-submit-form button[type="submit"]',
+                    '.product-buy button']);
   }
 
   function inserirAntes(novo, ref) {
@@ -483,6 +519,20 @@
     if (!ref || !ref.parentNode || document.getElementById(novo.id)) return false;
     ref.parentNode.insertBefore(novo, ref.nextSibling);
     return true;
+  }
+
+  /* Sobe até achar um contêiner que ocupe a largura toda,
+     para os selos ficarem centralizados abaixo do botão e do seletor de quantidade */
+  function containerDaCompra(botao) {
+    var n = botao;
+    for (var i = 0; i < 5 && n && n.parentNode; i++) {
+      var pai = n.parentNode;
+      var estilo = window.getComputedStyle(pai);
+      if (estilo.display === 'flex' || estilo.display === 'grid') { n = pai; continue; }
+      if (pai.offsetWidth >= botao.offsetWidth * 1.4) return n;
+      n = pai;
+    }
+    return botao.closest('.js-prod-submit-form, .product-buy, form') || botao;
   }
 
   /* =========================================================================
@@ -507,8 +557,7 @@
 
     var botao = acharBotaoComprar();
     if (botao && !$('#apdp-selos')) {
-      var alvo = botao.closest('.js-prod-submit-form, .product-buy, form') || botao;
-      inserirDepois(montarSelos(), alvo);
+      inserirDepois(montarSelos(), containerDaCompra(botao));
     }
 
     return !!$('#apdp-rating');
@@ -518,21 +567,15 @@
      Boot
      ========================================================================= */
   function iniciar() {
-    var ehProduto = !!firstOf([
-      '.js-product-detail', '[data-store="product-detail"]',
-      '.js-addtocart', '[data-store="product-buy-button"]'
-    ]);
+    var ehProduto = !!firstOf(['.js-product-detail', '[data-store="product-detail"]',
+                               '.js-addtocart', '[data-store="product-buy-button"]']);
     if (!ehProduto) return;
 
-    carregarGeo();
+    carregarDestino();
     montar();
 
     var n = 0;
-    var t = setInterval(function () {
-      n++;
-      montar();
-      if (n > 20) clearInterval(t);
-    }, 500);
+    var t = setInterval(function () { n++; montar(); if (n > 20) clearInterval(t); }, 500);
 
     new MutationObserver(function () {
       if (!$('#apdp-rating')) montar();
