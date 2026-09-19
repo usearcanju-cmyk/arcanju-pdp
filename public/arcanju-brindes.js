@@ -111,43 +111,45 @@
   }
 
   function qtdCamisetas() {
-    // 0) Carrinho aberto e explicitamente vazio
     var aberto = acharCarrinho();
-    if (aberto && aberto.offsetParent !== null && carrinhoVazio(aberto)) return 0;
+    var drawerAberto = !!(aberto && aberto.offsetParent !== null);
 
-    // 1) Campos de quantidade dentro do carrinho aberto
-    var cart = aberto;
-    if (cart && cart.offsetParent !== null) {
-      var campos = $$('input', cart).filter(function (i) {
-        var nome = (i.name || '') + ' ' + (i.className || '');
-        return /quant|qty/i.test(nome) || i.type === 'number';
+    // 0) Carrinho aberto e explicitamente vazio
+    if (drawerAberto && carrinhoVazio(aberto)) return 0;
+
+    // 1) Contador da sacola no cabeçalho — o tema mantém sempre em dia
+    var badge = qtdPelaSacola();
+    if (badge !== null && badge > 0) return badge;
+
+    // 2) Campos de quantidade dentro do carrinho aberto
+    if (drawerAberto) {
+      var campos = $$('input, select', aberto).filter(function (i) {
+        var nome = (i.name || '') + ' ' + (i.className || '') + ' ' + (i.id || '');
+        return /quant|qty|cantidad/i.test(nome) || i.type === 'number';
       });
       if (campos.length) {
-        return campos.reduce(function (s, i) {
+        var soma = campos.reduce(function (s, i) {
           var v = parseInt(i.value, 10);
           return s + (isNaN(v) ? 0 : v);
         }, 0);
+        if (soma > 0) return soma;
       }
-      return 0;   // drawer aberto sem itens
+
+      // 3) Conta as linhas de produto pelo botão "Apagar"
+      var linhas = $$('a, button', aberto).filter(function (n) {
+        return /apagar|remover|excluir/i.test((n.textContent || '').trim());
+      }).length;
+      if (linhas > 0) return linhas;
     }
 
-    // 1.5) Contador da sacola no cabeçalho — sempre confiável
-    var badge = qtdPelaSacola();
-    if (badge !== null) return badge;
-
-    // 2) Objeto da loja
+    // 4) Objeto da loja, como último recurso
     try {
       if (window.LS && LS.cart && Array.isArray(LS.cart.items)) {
-        var t = LS.cart.items.reduce(function (s, i) { return s + (i.quantity || 0); }, 0);
-        if (t > 0) return t;
+        return LS.cart.items.reduce(function (s, i) { return s + (i.quantity || 0); }, 0);
       }
     } catch (e) {}
-    var badge = firstOf(['.js-cart-widget-amount', '[data-component="cart-amount"]', '.cart-amount']);
-    if (badge) {
-      var n = parseInt((badge.textContent || '').replace(/\D/g, ''), 10);
-      if (!isNaN(n)) return n;
-    }
-    return 0;
+
+    return badge === null ? 0 : badge;
   }
 
   /* =========================================================================
