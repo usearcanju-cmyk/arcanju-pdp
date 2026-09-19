@@ -281,9 +281,20 @@
         box-shadow:inset 0 0 0 1.5px ${c.verde};
       }
 
-      /* cards de frete e promoção depois do botão */
+      /* cards de frete e promoção lado a lado, em grade */
+      body.apdp-desktop #apdp-dupla {
+        display:grid; grid-template-columns:1fr 1fr; gap:14px;
+        margin:16px 0 !important; align-items:stretch;
+      }
+      body.apdp-desktop #apdp-dupla > * { margin:0 !important; height:100%; }
       body.apdp-desktop #apdp-frete,
-      body.apdp-desktop #apdp-promo { margin:12px 0 !important; }
+      body.apdp-desktop #apdp-promo { display:flex; flex-direction:column; }
+      body.apdp-desktop #apdp-promo .apdp-promo__barra { margin-top:auto; }
+
+      /* em telas médias, uma coluna só */
+      @media (max-width: 1279px) {
+        body.apdp-desktop #apdp-dupla { grid-template-columns:1fr; }
+      }
 
       /* a barra fixa não faz sentido no desktop */
       body.apdp-desktop #apdp-sticky { display:none !important; }
@@ -797,24 +808,28 @@
     if (!frete || !promo || !botao || !tamanho) return;
 
     if (ehDesktop) {
-      // Ordem: bullets · tamanho · botão · frete · promoção · selos
-      var caixaBotao = containerDaCompra(botao);
-      if (caixaBotao && caixaBotao.parentNode) {
-        var ref = caixaBotao.nextSibling;
-        caixaBotao.parentNode.insertBefore(frete, ref);
-        caixaBotao.parentNode.insertBefore(promo, frete.nextSibling);
-        if (selos) caixaBotao.parentNode.insertBefore(selos, caixaBotao);
+      // Só os dois cards mudam de lugar, dentro do MESMO pai do seletor de tamanho.
+      // Nada que sustente o grid do tema é movido.
+      var forma = botao.closest('form') || botao.closest('.js-prod-submit-form');
+      var refDepois = (forma && forma.parentNode === tamanho.parentNode) ? forma : null;
+
+      if (refDepois) {
+        var dupla = $('#apdp-dupla');
+        if (!dupla) {
+          dupla = el('div', { class: 'apdp', id: 'apdp-dupla' });
+          refDepois.parentNode.insertBefore(dupla, refDepois.nextSibling);
+        }
+        dupla.appendChild(frete);
+        dupla.appendChild(promo);
       }
     } else {
-      // Volta ao layout original de celular
+      // Volta exatamente ao layout de celular
       if (tamanho.parentNode) {
         tamanho.parentNode.insertBefore(frete, tamanho);
         tamanho.parentNode.insertBefore(promo, tamanho);
       }
-      if (selos) {
-        var cb = containerDaCompra(acharBotaoComprar());
-        if (cb && cb.parentNode) cb.parentNode.insertBefore(selos, cb.nextSibling);
-      }
+      var d = $('#apdp-dupla');
+      if (d && d.parentNode) d.parentNode.removeChild(d);
     }
     ordemDesktopAplicada = ehDesktop;
   }
