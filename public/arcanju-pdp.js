@@ -648,14 +648,23 @@
     $('#apdp-sticky-btn').addEventListener('click', function () {
       var alvo = acharBotaoComprar();
       if (!alvo) return;
-      var variantes = acharSeletorTamanho();
-      var faltaEscolher = variantes && !$('.apdp-chip-ativo', variantes) &&
-                          !$('input:checked', variantes);
-      if (faltaEscolher) {
-        variantes.scrollIntoView({ behavior: 'smooth', block: 'center' });
-        return;
+
+      // Dispara o botão real do tema (Pixel e API de Conversões intactos).
+      // Alguns temas só reagem a uma sequência completa de eventos.
+      try {
+        ['pointerdown', 'mousedown', 'pointerup', 'mouseup', 'click'].forEach(function (tipo) {
+          alvo.dispatchEvent(new MouseEvent(tipo, {
+            bubbles: true, cancelable: true, view: window
+          }));
+        });
+      } catch (e) {
+        alvo.click();
       }
-      alvo.click();
+
+      // Se nada acontecer, leva a pessoa até o botão original
+      setTimeout(function () {
+        alvo.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      }, 600);
     });
 
     // Some quando o botão original está visível na tela
