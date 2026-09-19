@@ -373,6 +373,10 @@
   }
 
   function acharCarrinho() {
+    // Seletor exato do tema da Use Arcanju
+    var exato = $('form.js-ajax-cart-panel') || $('.js-ajax-cart-panel');
+    if (exato && exato.offsetParent !== null) return exato;
+
     var porTexto = acharCarrinhoPorTexto();
     if (porTexto) return porTexto;
 
@@ -392,6 +396,10 @@
   }
 
   function acharAncoraTotal(cart) {
+    // 0) linha de subtotal do tema (visível), é o ponto ideal
+    var linha = $('.cart-subtotal', cart);
+    if (linha && linha.offsetParent !== null) return linha;
+
     // 1) elementos de total/subtotal conhecidos
     var direto = firstOf([
       '.js-cart-total', '[data-component="cart-total"]', '.cart-total',
