@@ -204,6 +204,15 @@
     }
     .apdp-btn-bonito:hover { background:${CFG.corBotaoHover} !important; }
     .apdp-btn-bonito:active { transform:translateY(1px); }
+    /* mantém o visual durante o estado de carregando do tema */
+    .apdp-btn-bonito[disabled],
+    .apdp-btn-bonito.loading,
+    .apdp-btn-bonito.is-loading,
+    .apdp-btn-bonito[data-loading],
+    .apdp-btn-bonito.disabled {
+      background:${CFG.corBotao} !important; border-color:${CFG.corBotao} !important;
+      color:#fff !important; opacity:1 !important; cursor:wait !important;
+    }
 
     /* Seletor de tamanho em chips */
     .apdp-chip {
@@ -246,10 +255,10 @@
     }
     .apdp-sticky__btn:hover { background:${CFG.corBotaoHover}; }
 
-    /* Seletor de quantidade no mesmo desenho dos chips */
+    /* Seletor de quantidade: sem moldura externa */
     .apdp-qty {
-      border:1.5px solid ${c.borda} !important; border-radius:10px !important;
-      overflow:hidden !important; min-height:52px !important;
+      border:0 !important; background:transparent !important;
+      box-shadow:none !important; padding:0 !important;
     }
     .apdp-btn-bonito { margin-left:10px !important; }
 
@@ -561,7 +570,13 @@
   function estilizarBotao() {
     if (!CFG.estilizarBotao) return;
     var b = acharBotaoComprar();
-    if (b && !b.classList.contains('apdp-btn-bonito')) b.classList.add('apdp-btn-bonito');
+    if (b) {
+      if (!b.classList.contains('apdp-btn-bonito')) b.classList.add('apdp-btn-bonito');
+      // O tema troca o texto para "Incluindo..." ao adicionar; deixamos legível
+      var alvoTxt = b.querySelector('span, .js-addtocart-text') || b;
+      var txt = (alvoTxt.textContent || '').trim();
+      if (/^incluindo\.*$/i.test(txt)) alvoTxt.textContent = 'INCLUINDO NO CARRINHO';
+    }
 
     // Seletor de quantidade no mesmo desenho
     var qtd = firstOf(['.js-quantity-input', 'input[name="quantity"]', '.js-prod-qty']);
@@ -769,8 +784,11 @@
     var t = setInterval(function () { n++; montar(); if (n > 20) clearInterval(t); }, 500);
 
     document.addEventListener('click', function () {
-      setTimeout(function () { try { estilizarTamanhos(); estilizarBotao(); } catch (e) {} }, 60);
+      [40, 120, 300, 700].forEach(function (ms) {
+        setTimeout(function () { try { estilizarTamanhos(); estilizarBotao(); } catch (e) {} }, ms);
+      });
     });
+    setInterval(function () { try { estilizarBotao(); } catch (e) {} }, 300);
 
     new MutationObserver(function () {
       if (!$('#apdp-rating')) montar();

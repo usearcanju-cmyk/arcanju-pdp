@@ -14,6 +14,7 @@
      ========================================================================= */
   var CFG = {
     meta: 2,
+    debug: true,   // true = escreve no console o que está acontecendo
 
     titulo: 'Leve 2 camisetas e ganhe uma sacolinha e uma capelinha de brinde!',
     subtitulo: 'Além de R$ 29 de desconto e frete grátis.',
@@ -96,9 +97,27 @@
   }
 
   function qtdCamisetas() {
+    // 1) Campos de quantidade dentro do carrinho aberto
+    var cart = acharCarrinho();
+    if (cart && cart.offsetParent !== null) {
+      var campos = $$('input', cart).filter(function (i) {
+        var nome = (i.name || '') + ' ' + (i.className || '');
+        return /quant|qty/i.test(nome) || i.type === 'number';
+      });
+      if (campos.length) {
+        var soma = campos.reduce(function (s, i) {
+          var v = parseInt(i.value, 10);
+          return s + (isNaN(v) ? 0 : v);
+        }, 0);
+        if (soma > 0) return soma;
+      }
+    }
+
+    // 2) Objeto da loja
     try {
       if (window.LS && LS.cart && Array.isArray(LS.cart.items)) {
-        return LS.cart.items.reduce(function (s, i) { return s + (i.quantity || 0); }, 0);
+        var t = LS.cart.items.reduce(function (s, i) { return s + (i.quantity || 0); }, 0);
+        if (t > 0) return t;
       }
     } catch (e) {}
     var badge = firstOf(['.js-cart-widget-amount', '[data-component="cart-amount"]', '.cart-amount']);
@@ -342,13 +361,25 @@
     ]);
     if (direto && cart.contains(direto)) return direto;
 
-    // 2) pelo texto "Subtotal"
-    var sub = $$('*', cart).filter(function (n) {
-      return n.children.length === 0 && /subtotal/i.test(n.textContent || '');
-    })[0];
-    if (sub) {
-      var linha = sub.closest('div, li, tr') || sub;
-      return linha.parentNode === cart ? linha : (linha.parentNode || linha);
+    // 2) por texto conhecido do drawer, na ordem de preferência
+    var alvos = ['meios de envio', 'subtotal', 'total'];
+    for (var a = 0; a < alvos.length; a++) {
+      var re = new RegExp(alvos[a], 'i');
+      var achado = $$('*', cart).filter(function (n) {
+        return n.children.length === 0 &&
+               re.test((n.textContent || '').trim()) &&
+               n.offsetParent !== null;
+      })[0];
+      if (achado) {
+        var linha = achado;
+        // sobe até um bloco de largura relevante
+        for (var i = 0; i < 4 && linha.parentNode && linha.parentNode !== cart; i++) {
+          if (linha.offsetWidth > cart.offsetWidth * 0.6) break;
+          linha = linha.parentNode;
+        }
+        if (CFG.debug) console.log('[ABR] âncora por texto:', alvos[a], linha);
+        return linha;
+      }
     }
 
     // 3) antes do botão de finalizar
@@ -430,12 +461,21 @@
     var antigo = document.getElementById('abr-cart-wrap');
     if (antigo && antigo.parentNode) antigo.parentNode.removeChild(antigo);
 
-    var ancora = acharAncoraTotal(cart);
-    if (!ancora || !ancora.parentNode) { ultimoCarrinho = ''; return; }
-
     var html = (q >= CFG.meta ? blocoBrindes() : '') + blocoPromo(q) + blocoComplementos();
     var wrap = el('div', { class: 'abr', id: 'abr-cart-wrap' }, html);
-    ancora.parentNode.insertBefore(wrap, ancora);
+
+    var ancora = acharAncoraTotal(cart);
+    if (ancora && ancora.parentNode) {
+      ancora.parentNode.insertBefore(wrap, ancora);
+      if (CFG.debug) console.log('[ABR] inserido antes de', ancora);
+    } else {
+      // Último recurso: joga no fim do container visível do carrinho
+      var destino = $$('div, section, aside', cart).filter(function (n) {
+        return n.offsetParent !== null && n.offsetHeight > 120;
+      }).pop() || cart;
+      destino.appendChild(wrap);
+      if (CFG.debug) console.log('[ABR] âncora não encontrada, anexado em', destino);
+    }
     ultimoCarrinho = chave;
 
   }
