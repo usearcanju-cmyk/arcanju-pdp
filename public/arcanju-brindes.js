@@ -212,9 +212,10 @@
     .abr-modal__rodape b { color:${c.vinho}; }
 
     /* Blocos do carrinho */
+    #abr-cart-wrap { width:100%; max-width:100%; overflow:hidden; }
     .abr-cart-promo {
       border:1px solid ${c.vinho}; border-radius:10px; padding:12px 14px; margin:12px 0;
-      background:${c.creme};
+      background:${c.creme}; width:100%; max-width:100%;
     }
     .abr-cart-promo__txt { font-size:13.5px; line-height:1.45; color:${c.texto}; }
     .abr-cart-promo__txt b { color:${c.vinho}; font-weight:700; }
@@ -346,11 +347,31 @@
   /* =========================================================================
      Carrinho
      ========================================================================= */
+  function pareceDrawer(n) {
+    if (!n) return false;
+    if (n.offsetParent === null) return false;          // invisível
+    if (n.closest('header, nav, .js-head, #header')) return false; // cabeçalho
+    if (n.offsetHeight < 320) return false;             // pequeno demais
+    var t = (n.textContent || '');
+    var temResumo = /subtotal|total/i.test(t);
+    var temBotao = /iniciar compra|finalizar/i.test(t);
+    return temResumo || temBotao;
+  }
+
   function acharCarrinho() {
-    return firstOf([
-      '.js-cart-widget', '#ajax-cart', '[data-component="cart"]',
-      '.cart-widget', '.js-modal-cart', '#cart'
-    ]);
+    var candidatos = [];
+    ['.js-cart-widget', '#ajax-cart', '[data-component="cart"]', '.cart-widget',
+     '.js-modal-cart', '#cart', '.js-cart', '[class*="cart-drawer"]',
+     '[class*="modal-cart"]'].forEach(function (sel) {
+      $$(sel).forEach(function (n) { if (candidatos.indexOf(n) === -1) candidatos.push(n); });
+    });
+
+    var validos = candidatos.filter(pareceDrawer);
+    if (!validos.length) return null;
+
+    // menor container válido (evita pegar a página inteira)
+    validos.sort(function (a, b) { return a.offsetHeight - b.offsetHeight; });
+    return validos[0];
   }
 
   function acharAncoraTotal(cart) {
@@ -362,7 +383,7 @@
     if (direto && cart.contains(direto)) return direto;
 
     // 2) por texto conhecido do drawer, na ordem de preferência
-    var alvos = ['meios de envio', 'subtotal', 'total'];
+    var alvos = ['subtotal', 'iniciar compra', 'total', 'meios de envio'];
     for (var a = 0; a < alvos.length; a++) {
       var re = new RegExp(alvos[a], 'i');
       var achado = $$('*', cart).filter(function (n) {
@@ -446,8 +467,17 @@
   var ultimoCarrinho = '';
   var observandoCarrinho = false;
 
+  function limparForaDoLugar(cart) {
+    $$('#abr-cart-wrap').forEach(function (n) {
+      if (!cart || !cart.contains(n)) {
+        if (n.parentNode) n.parentNode.removeChild(n);
+      }
+    });
+  }
+
   function atualizarCarrinho() {
     var cart = acharCarrinho();
+    limparForaDoLugar(cart);
     if (!cart || cart.offsetParent === null) { ultimoCarrinho = ''; return; }
 
     var q = qtdCamisetas();
