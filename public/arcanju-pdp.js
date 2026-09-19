@@ -1,12 +1,12 @@
 /* ==========================================================================
-   Use Arcanju — Melhorias da página de produto (PDP)  |  v3
+   Use Arcanju — Melhorias da página de produto (PDP)  |  v4
    Prefixo: apdp-   ·   Frete por CEP (ViaCEP, gratuito e ilimitado)
    ========================================================================== */
 (function () {
   'use strict';
 
-  if (window.__ARCANJU_PDP_V3__) return;
-  window.__ARCANJU_PDP_V3__ = true;
+  if (window.__ARCANJU_PDP_V4__) return;
+  window.__ARCANJU_PDP_V4__ = true;
 
   /* =========================================================================
      CONFIGURAÇÃO
@@ -22,6 +22,11 @@
     ],
     janelaHoras: 2,          // duração da oferta por visitante
     removerBreadcrumb: true,
+    estilizarBotao: true,      // deixa o botão de compra verde e arredondado
+    estilizarTamanhos: true,   // deixa o seletor de tamanho em chips
+    barraFixa: true,           // botão de comprar fixo no rodapé
+    corBotao: '#1FA24A',
+    corBotaoHover: '#188B3E',
     espaco: 16,              // espaçamento vertical uniforme (px)
     promo: {
       meta: 2,
@@ -189,7 +194,59 @@
       justify-content:center; flex-wrap:wrap; }
     .apdp-selos__bandeiras svg { display:block; border-radius:3px; }
 
-    @media (prefers-reduced-motion: reduce) { .apdp-promo__fill { transition:none; } }
+    /* Botão de compra do tema, apenas repaginado */
+    .apdp-btn-bonito {
+      background:${CFG.corBotao} !important; border-color:${CFG.corBotao} !important;
+      color:#fff !important; border-radius:10px !important; font-weight:700 !important;
+      letter-spacing:.4px !important; text-transform:uppercase !important;
+      min-height:52px !important; font-size:14px !important;
+      box-shadow:0 2px 10px rgba(31,162,74,.28) !important; transition:background .15s ease;
+    }
+    .apdp-btn-bonito:hover { background:${CFG.corBotaoHover} !important; }
+    .apdp-btn-bonito:active { transform:translateY(1px); }
+
+    /* Seletor de tamanho em chips */
+    .apdp-chip {
+      border:1.5px solid ${c.borda} !important; border-radius:10px !important;
+      min-width:48px !important; min-height:44px !important;
+      display:inline-flex !important; align-items:center !important; justify-content:center !important;
+      font-size:14px !important; color:${c.texto} !important; background:#fff !important;
+      transition:border-color .15s ease, box-shadow .15s ease;
+    }
+    .apdp-chip:hover { border-color:${c.texto} !important; }
+    .apdp-chip-ativo {
+      border-color:#111 !important; border-width:2px !important;
+      box-shadow:0 0 0 1px #111 inset !important; font-weight:700 !important;
+    }
+
+    /* Barra fixa de compra */
+    #apdp-sticky {
+      position:fixed; left:0; right:0; bottom:0; z-index:9990;
+      background:rgba(255,255,255,.97); backdrop-filter:blur(8px);
+      border-top:1px solid ${c.borda}; padding:10px 14px;
+      display:flex; align-items:center; gap:12px;
+      transform:translateY(120%); transition:transform .25s ease;
+      box-shadow:0 -4px 18px rgba(0,0,0,.08);
+      padding-bottom:calc(10px + env(safe-area-inset-bottom));
+    }
+    #apdp-sticky.apdp-sticky--on { transform:none; }
+    .apdp-sticky__info { flex:1 1 auto; min-width:0; }
+    .apdp-sticky__nome {
+      font-size:12.5px; color:${c.cinza}; line-height:1.25;
+      overflow:hidden; text-overflow:ellipsis; white-space:nowrap;
+    }
+    .apdp-sticky__preco { font-size:15px; font-weight:700; color:${c.texto}; line-height:1.3; }
+    .apdp-sticky__btn {
+      flex:0 0 auto; border:0; cursor:pointer; padding:0 22px; min-height:46px;
+      border-radius:10px; background:${CFG.corBotao}; color:#fff;
+      font-family:inherit; font-size:14px; font-weight:700; letter-spacing:.4px;
+      text-transform:uppercase;
+    }
+    .apdp-sticky__btn:hover { background:${CFG.corBotaoHover}; }
+
+    @media (prefers-reduced-motion: reduce) {
+      .apdp-promo__fill, #apdp-sticky { transition:none; }
+    }
     `;
     document.head.appendChild(el('style', { id: 'apdp-css' }, css));
   }
@@ -486,6 +543,106 @@
     if (bc) bc.style.display = 'none';
   }
 
+
+  /* =========================================================================
+     8 · Repaginar botão de compra e seletor de tamanho (sem trocar o elemento,
+          para não perder Pixel / API de Conversões do Meta)
+     ========================================================================= */
+  function estilizarBotao() {
+    if (!CFG.estilizarBotao) return;
+    var b = acharBotaoComprar();
+    if (b && !b.classList.contains('apdp-btn-bonito')) b.classList.add('apdp-btn-bonito');
+  }
+
+  function estilizarTamanhos() {
+    if (!CFG.estilizarTamanhos) return;
+    var cont = acharSeletorTamanho();
+    if (!cont) return;
+
+    var opcoes = $$('label, .js-variation-option, [data-variation-value], button', cont)
+      .filter(function (n) {
+        var t = (n.textContent || '').trim();
+        return t.length > 0 && t.length <= 4 && !/tamanho|guia|medida/i.test(t);
+      });
+
+    opcoes.forEach(function (o) {
+      if (!o.classList.contains('apdp-chip')) o.classList.add('apdp-chip');
+      var input = o.querySelector('input') ||
+                  (o.htmlFor ? document.getElementById(o.htmlFor) : null);
+      var ativo = (input && input.checked) ||
+                  o.classList.contains('active') ||
+                  o.getAttribute('aria-checked') === 'true' ||
+                  o.getAttribute('aria-selected') === 'true';
+      o.classList.toggle('apdp-chip-ativo', !!ativo);
+    });
+  }
+
+  /* =========================================================================
+     9 · Barra fixa de compra
+     ========================================================================= */
+  function montarSticky() {
+    if (!CFG.barraFixa || $('#apdp-sticky')) return;
+
+    var botao = acharBotaoComprar();
+    if (!botao) return;
+
+    var nomeEl = acharTitulo();
+    var nome = nomeEl ? (nomeEl.textContent || '').trim() : '';
+
+    var precoEl = firstOf(['[data-store="product-price"]', '.js-price-display',
+                           '.product-price', '.js-product-price']);
+    var preco = precoEl ? (precoEl.textContent || '').trim() : '';
+
+    var barra = el('div', { class: 'apdp', id: 'apdp-sticky' },
+      '<span class="apdp-sticky__info">' +
+      '<span class="apdp-sticky__nome" id="apdp-sticky-nome">' + nome + '</span>' +
+      '<span class="apdp-sticky__preco" id="apdp-sticky-preco">' + preco + '</span>' +
+      '</span>' +
+      '<button type="button" class="apdp-sticky__btn" id="apdp-sticky-btn">Comprar</button>'
+    );
+    document.body.appendChild(barra);
+
+    // Aciona o botão real do tema: o Pixel e a API de Conversões seguem intactos
+    $('#apdp-sticky-btn').addEventListener('click', function () {
+      var alvo = acharBotaoComprar();
+      if (!alvo) return;
+      var variantes = acharSeletorTamanho();
+      var faltaEscolher = variantes && !$('.apdp-chip-ativo', variantes) &&
+                          !$('input:checked', variantes);
+      if (faltaEscolher) {
+        variantes.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        return;
+      }
+      alvo.click();
+    });
+
+    // Some quando o botão original está visível na tela
+    if ('IntersectionObserver' in window) {
+      new IntersectionObserver(function (entradas) {
+        entradas.forEach(function (e) {
+          barra.classList.toggle('apdp-sticky--on', !e.isIntersecting);
+        });
+      }, { threshold: 0.35 }).observe(botao);
+    } else {
+      window.addEventListener('scroll', function () {
+        var r = botao.getBoundingClientRect();
+        var visivel = r.top < window.innerHeight && r.bottom > 0;
+        barra.classList.toggle('apdp-sticky--on', !visivel);
+      });
+    }
+
+    // Mantém o preço em dia quando a pessoa troca a variação
+    setInterval(function () {
+      var pe = firstOf(['[data-store="product-price"]', '.js-price-display',
+                        '.product-price', '.js-product-price']);
+      var alvo = $('#apdp-sticky-preco');
+      if (pe && alvo) {
+        var novo = (pe.textContent || '').trim();
+        if (novo && novo !== alvo.textContent) alvo.textContent = novo;
+      }
+    }, 1000);
+  }
+
   /* =========================================================================
      Inserção
      ========================================================================= */
@@ -560,6 +717,10 @@
       inserirDepois(montarSelos(), containerDaCompra(botao));
     }
 
+    estilizarBotao();
+    estilizarTamanhos();
+    montarSticky();
+
     return !!$('#apdp-rating');
   }
 
@@ -577,8 +738,13 @@
     var n = 0;
     var t = setInterval(function () { n++; montar(); if (n > 20) clearInterval(t); }, 500);
 
+    document.addEventListener('click', function () {
+      setTimeout(function () { try { estilizarTamanhos(); estilizarBotao(); } catch (e) {} }, 60);
+    });
+
     new MutationObserver(function () {
       if (!$('#apdp-rating')) montar();
+      try { estilizarBotao(); estilizarTamanhos(); } catch (e) {}
     }).observe(document.body, { childList: true, subtree: true });
   }
 

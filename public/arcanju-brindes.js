@@ -20,7 +20,7 @@
     rodapeModal: 'Uma destas capelinhas vai na sua sacola — a escolha é uma surpresa nossa.',
 
     // Imagens servidas pela Vercel, a partir da pasta public/img/
-    baseImg: 'https://arcanju-pdp.vercel.app/img/',
+    baseImg: 'https://arcanju-pdp.vercel.app/',
 
     capelinhas: [
       { nome: 'São Miguel Arcanjo',        img: 'capela-sao-miguel-arcanjo.jpg' },
@@ -329,9 +329,29 @@
   }
 
   function acharAncoraTotal(cart) {
-    return firstOf([
-      '.js-cart-total', '[data-component="cart-total"]', '.cart-total', '.js-cart-subtotal'
-    ]) || $('.js-cart-summary', cart);
+    // 1) elementos de total/subtotal conhecidos
+    var direto = firstOf([
+      '.js-cart-total', '[data-component="cart-total"]', '.cart-total',
+      '.js-cart-subtotal', '.js-cart-summary'
+    ]);
+    if (direto && cart.contains(direto)) return direto;
+
+    // 2) pelo texto "Subtotal"
+    var sub = $$('*', cart).filter(function (n) {
+      return n.children.length === 0 && /subtotal/i.test(n.textContent || '');
+    })[0];
+    if (sub) {
+      var linha = sub.closest('div, li, tr') || sub;
+      return linha.parentNode === cart ? linha : (linha.parentNode || linha);
+    }
+
+    // 3) antes do botão de finalizar
+    var botao = $$('a, button', cart).filter(function (n) {
+      return /iniciar compra|finalizar|checkout/i.test(n.textContent || '');
+    })[0];
+    if (botao) return botao.closest('div, li') || botao;
+
+    return null;
   }
 
   function blocoPromo(q) {
@@ -412,17 +432,35 @@
     ancora.parentNode.insertBefore(wrap, ancora);
     ultimoCarrinho = chave;
 
-    // Observa o drawer: se o tema redesenhar e apagar os blocos, repõe na hora
-    if (!observandoCarrinho) {
-      observandoCarrinho = true;
-      new MutationObserver(function () {
-        if (!document.getElementById('abr-cart-wrap')) {
-          ultimoCarrinho = '';
-          atualizarCarrinho();
-        }
-      }).observe(cart, { childList: true, subtree: true });
-    }
   }
+
+  // Observa o documento inteiro: o tema pode trocar o drawer por um nó novo
+  function observarDocumento() {
+    if (observandoCarrinho) return;
+    observandoCarrinho = true;
+    var agendado = false;
+    new MutationObserver(function () {
+      if (agendado) return;
+      agendado = true;
+      setTimeout(function () {
+        agendado = false;
+        try { atualizarCarrinho(); } catch (e) {}
+      }, 120);
+    }).observe(document.body, { childList: true, subtree: true });
+  }
+
+  // Diagnóstico: rode ABR_DEBUG() no console com o carrinho aberto
+  window.ABR_DEBUG = function () {
+    var cart = acharCarrinho();
+    return {
+      carrinhoEncontrado: !!cart,
+      carrinhoVisivel: !!(cart && cart.offsetParent !== null),
+      ancoraEncontrada: !!(cart && acharAncoraTotal(cart)),
+      quantidade: qtdCamisetas(),
+      blocosNoDOM: !!document.getElementById('abr-cart-wrap'),
+      baseImagens: CFG.baseImg
+    };
+  };
 
   /* =========================================================================
      Boot
@@ -432,7 +470,8 @@
     montarBarra();
     montarBotao();
 
-    setInterval(atualizarCarrinho, 500);
+    setInterval(function () { try { atualizarCarrinho(); } catch (e) {} }, 500);
+    observarDocumento();
     document.addEventListener('click', function () { setTimeout(atualizarCarrinho, 800); });
   }
 
