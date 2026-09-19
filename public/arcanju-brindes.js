@@ -639,6 +639,31 @@
     }
   }
 
+  window.ABR_VERSION = 'v5-contagem';
+
+  // Diagnóstico da contagem: rode ABR_QTD() no console com o carrinho aberto
+  window.ABR_QTD = function () {
+    var cart = acharCarrinho();
+    var drawer = !!(cart && cart.offsetParent !== null);
+    var campos = drawer ? $$('input, select', cart).map(function (i) {
+      return { name: i.name, cls: i.className, type: i.type, value: i.value };
+    }) : [];
+    var apagar = drawer ? $$('a, button', cart).filter(function (n) {
+      return /apagar|remover|excluir/i.test((n.textContent || '').trim());
+    }).length : 0;
+    var r = {
+      versao: window.ABR_VERSION,
+      drawerAberto: drawer,
+      vazio: drawer ? carrinhoVazio(cart) : null,
+      badgeSacola: qtdPelaSacola(),
+      linhasApagar: apagar,
+      camposEncontrados: campos,
+      RESULTADO: qtdCamisetas()
+    };
+    console.log(r);
+    return r;
+  };
+
   // Teste manual: rode ABR_SCROLL() no console
   window.ABR_SCROLL = function () {
     var alvo = acharMaisVendidas();

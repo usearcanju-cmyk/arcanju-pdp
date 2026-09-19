@@ -344,6 +344,66 @@
   function salvarDestino(d) {
     DESTINO = d;
     ls('apdp_destino', JSON.stringify(d));
+    setTimeout(function () { try { enviarCepParaTema(d.cep); } catch (e) {} }, 100);
+  }
+
+  /* --- Sincronização do CEP com o campo da Nuvemshop --- */
+  function camposCepDoTema() {
+    return $$('input').filter(function (i) {
+      var marca = [i.name, i.id, i.className, i.placeholder,
+                   i.getAttribute('data-store') || ''].join(' ');
+      if (/apdp-cep-input/.test(marca)) return false;      // ignora o nosso
+      return /cep|zipcode|zip_code|postal/i.test(marca);
+    });
+  }
+
+  function dispararEventos(campo) {
+    ['input', 'change', 'keyup', 'blur'].forEach(function (tipo) {
+      campo.dispatchEvent(new Event(tipo, { bubbles: true }));
+    });
+  }
+
+  function enviarCepParaTema(cep) {
+    if (!cep) return;
+    var formatado = cep.length === 8 ? cep.slice(0, 5) + '-' + cep.slice(5) : cep;
+
+    camposCepDoTema().forEach(function (campo) {
+      var atual = (campo.value || '').replace(/\D/g, '');
+      if (atual === cep) return;
+      campo.value = formatado;
+      dispararEventos(campo);
+
+      // aciona o botão de calcular ao lado, se existir
+      var area = campo.closest('form, div, section') || document;
+      var botao = $$('button, a, input[type="submit"]', area).filter(function (b) {
+        return /calcular|calcule|ok|buscar/i.test(
+          (b.textContent || b.value || '').trim()
+        );
+      })[0];
+      if (botao) { try { botao.click(); } catch (e) {} }
+    });
+  }
+
+  function lerCepDoTema() {
+    var achado = null;
+    camposCepDoTema().forEach(function (campo) {
+      var v = (campo.value || '').replace(/\D/g, '');
+      if (v.length === 8 && !achado) achado = v;
+    });
+    return achado;
+  }
+
+  // Se o tema já tem um CEP e nós não, adota o dele
+  function adotarCepDoTema() {
+    if (DESTINO && DESTINO.cep) return;
+    var cep = lerCepDoTema();
+    if (!cep) return;
+    buscarCEP(cep).then(function (d) {
+      if (FRETE[d.uf]) {
+        DESTINO = d;
+        ls('apdp_destino', JSON.stringify(d));
+      }
+    }).catch(function () {});
   }
 
   function buscarCEP(cep) {
@@ -877,6 +937,15 @@
 
     carregarDestino();
     montar();
+
+    // Sincroniza o CEP nos dois sentidos
+    setTimeout(adotarCepDoTema, 1200);
+    setInterval(function () {
+      try {
+        if (DESTINO && DESTINO.cep) enviarCepParaTema(DESTINO.cep);
+        else adotarCepDoTema();
+      } catch (e) {}
+    }, 3000);
 
     var n = 0;
     var t = setInterval(function () { n++; montar(); if (n > 20) clearInterval(t); }, 500);
