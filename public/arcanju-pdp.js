@@ -221,10 +221,10 @@
 
     /* Barra fixa de compra */
     #apdp-sticky {
-      position:fixed; left:0; right:0; bottom:0; z-index:9990;
+      position:fixed; left:0; right:0; bottom:0; z-index:9985;
       background:rgba(255,255,255,.97); backdrop-filter:blur(8px);
       border-top:1px solid ${c.borda}; padding:10px 14px;
-      display:flex; align-items:center; gap:12px;
+      display:flex; align-items:center; gap:10px;
       transform:translateY(120%); transition:transform .25s ease;
       box-shadow:0 -4px 18px rgba(0,0,0,.08);
       padding-bottom:calc(10px + env(safe-area-inset-bottom));
@@ -232,20 +232,30 @@
     #apdp-sticky.apdp-sticky--on { transform:none; }
     .apdp-sticky__info { flex:1 1 auto; min-width:0; }
     .apdp-sticky__nome {
-      font-size:12.5px; color:${c.cinza}; line-height:1.25;
-      overflow:hidden; text-overflow:ellipsis; white-space:nowrap;
+      font-size:11px; color:${c.cinza}; line-height:1.2;
+      display:-webkit-box; -webkit-line-clamp:2; -webkit-box-orient:vertical;
+      overflow:hidden; text-transform:none;
     }
-    .apdp-sticky__preco { font-size:15px; font-weight:700; color:${c.texto}; line-height:1.3; }
+    .apdp-sticky__preco { font-size:14.5px; font-weight:700; color:${c.texto}; line-height:1.3;
+      display:block; margin-top:1px; }
     .apdp-sticky__btn {
-      flex:0 0 auto; border:0; cursor:pointer; padding:0 22px; min-height:46px;
+      flex:0 0 auto; border:0; cursor:pointer; padding:0 18px; min-height:46px;
       border-radius:10px; background:${CFG.corBotao}; color:#fff;
       font-family:inherit; font-size:14px; font-weight:700; letter-spacing:.4px;
       text-transform:uppercase;
     }
     .apdp-sticky__btn:hover { background:${CFG.corBotaoHover}; }
 
+    /* Seletor de quantidade no mesmo desenho dos chips */
+    .apdp-qty {
+      border:1.5px solid ${c.borda} !important; border-radius:10px !important;
+      overflow:hidden !important; min-height:52px !important;
+    }
+    .apdp-btn-bonito { margin-left:10px !important; }
+
     @media (prefers-reduced-motion: reduce) {
       .apdp-promo__fill, #apdp-sticky { transition:none; }
+      #apdp-sticky { transition:none; }
     }
     `;
     document.head.appendChild(el('style', { id: 'apdp-css' }, css));
@@ -552,18 +562,31 @@
     if (!CFG.estilizarBotao) return;
     var b = acharBotaoComprar();
     if (b && !b.classList.contains('apdp-btn-bonito')) b.classList.add('apdp-btn-bonito');
+
+    // Seletor de quantidade no mesmo desenho
+    var qtd = firstOf(['.js-quantity-input', 'input[name="quantity"]', '.js-prod-qty']);
+    if (qtd) {
+      var caixa = qtd.closest('.js-quantity-wrapper, .item-quantity, .quantity, div');
+      if (caixa && !caixa.classList.contains('apdp-qty')) caixa.classList.add('apdp-qty');
+    }
   }
+
+  var RE_TAMANHO = /^(PP|P|M|G|GG|XG|XGG|XXG|U|ÚNICO|UNICO|\d{1,2})$/i;
 
   function estilizarTamanhos() {
     if (!CFG.estilizarTamanhos) return;
-    var cont = acharSeletorTamanho();
-    if (!cont) return;
 
-    var opcoes = $$('label, .js-variation-option, [data-variation-value], button', cont)
-      .filter(function (n) {
-        var t = (n.textContent || '').trim();
-        return t.length > 0 && t.length <= 4 && !/tamanho|guia|medida/i.test(t);
-      });
+    var escopo = firstOf(['.js-product-detail', '[data-store="product-detail"]',
+                          '.product-detail', 'form']) || document;
+
+    // Qualquer elemento "folha" cujo texto seja um tamanho
+    var opcoes = $$('label, button, a, span, div, li', escopo).filter(function (n) {
+      if (n.children.length > 1) return false;
+      var t = (n.textContent || '').trim();
+      if (!RE_TAMANHO.test(t)) return false;
+      var r = n.getBoundingClientRect();
+      return r.width > 20 && r.width < 140 && r.height > 20;
+    });
 
     opcoes.forEach(function (o) {
       if (!o.classList.contains('apdp-chip')) o.classList.add('apdp-chip');
@@ -601,6 +624,10 @@
       '<button type="button" class="apdp-sticky__btn" id="apdp-sticky-btn">Comprar</button>'
     );
     document.body.appendChild(barra);
+    if (!$('#apdp-sticky-space')) {
+      document.body.appendChild(el('div', { id: 'apdp-sticky-space',
+        style: 'height:0;transition:height .25s ease' }));
+    }
 
     // Aciona o botão real do tema: o Pixel e a API de Conversões seguem intactos
     $('#apdp-sticky-btn').addEventListener('click', function () {
@@ -620,7 +647,9 @@
     if ('IntersectionObserver' in window) {
       new IntersectionObserver(function (entradas) {
         entradas.forEach(function (e) {
-          barra.classList.toggle('apdp-sticky--on', !e.isIntersecting);
+          var mostrar = !e.isIntersecting;
+          barra.classList.toggle('apdp-sticky--on', mostrar);
+          document.body.classList.toggle('apdp-sticky-ativa', mostrar);
         });
       }, { threshold: 0.35 }).observe(botao);
     } else {
@@ -628,6 +657,7 @@
         var r = botao.getBoundingClientRect();
         var visivel = r.top < window.innerHeight && r.bottom > 0;
         barra.classList.toggle('apdp-sticky--on', !visivel);
+        document.body.classList.toggle('apdp-sticky-ativa', !visivel);
       });
     }
 
