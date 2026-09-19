@@ -387,31 +387,41 @@
   }
 
   var ultimoCarrinho = '';
+  var observandoCarrinho = false;
 
   function atualizarCarrinho() {
     var cart = acharCarrinho();
-    if (!cart || cart.offsetParent === null) return;
+    if (!cart || cart.offsetParent === null) { ultimoCarrinho = ''; return; }
 
     var q = qtdCamisetas();
-    var chave = q + '|' + !!$('#abr-cart-promo');
-    if (chave === ultimoCarrinho && $('#abr-cart-promo')) {
-      // só atualiza a barra
-      var fill = $('#abr-cart-promo__fill');
-      return;
-    }
-    ultimoCarrinho = chave;
+    var presente = !!(document.getElementById('abr-cart-wrap') &&
+                      document.body.contains(document.getElementById('abr-cart-wrap')));
+    var chave = String(q);
 
-    // Remove versões anteriores
-    ['#abr-cart-promo', '#abr-brindes', '#abr-comp'].forEach(function (s) {
-      var n = $(s); if (n) n.parentNode.removeChild(n);
-    });
+    // Só pula se nada mudou E os blocos continuam no DOM
+    if (presente && chave === ultimoCarrinho) return;
+
+    var antigo = document.getElementById('abr-cart-wrap');
+    if (antigo && antigo.parentNode) antigo.parentNode.removeChild(antigo);
 
     var ancora = acharAncoraTotal(cart);
-    if (!ancora || !ancora.parentNode) return;
+    if (!ancora || !ancora.parentNode) { ultimoCarrinho = ''; return; }
 
     var html = (q >= CFG.meta ? blocoBrindes() : '') + blocoPromo(q) + blocoComplementos();
     var wrap = el('div', { class: 'abr', id: 'abr-cart-wrap' }, html);
     ancora.parentNode.insertBefore(wrap, ancora);
+    ultimoCarrinho = chave;
+
+    // Observa o drawer: se o tema redesenhar e apagar os blocos, repõe na hora
+    if (!observandoCarrinho) {
+      observandoCarrinho = true;
+      new MutationObserver(function () {
+        if (!document.getElementById('abr-cart-wrap')) {
+          ultimoCarrinho = '';
+          atualizarCarrinho();
+        }
+      }).observe(cart, { childList: true, subtree: true });
+    }
   }
 
   /* =========================================================================
@@ -422,7 +432,7 @@
     montarBarra();
     montarBotao();
 
-    setInterval(atualizarCarrinho, 1200);
+    setInterval(atualizarCarrinho, 500);
     document.addEventListener('click', function () { setTimeout(atualizarCarrinho, 800); });
   }
 
