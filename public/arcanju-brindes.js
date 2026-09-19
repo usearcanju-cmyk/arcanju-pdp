@@ -98,8 +98,22 @@
 
   function carrinhoVazio(cart) {
     if (!cart) return false;
-    return /carrinho de compras est[áa] vazio|carrinho est[áa] vazio|seu carrinho est[áa] vazio/i
-      .test(cart.textContent || '');
+
+    // Se existe linha de produto, não está vazio
+    var temProduto = $$('a, button', cart).some(function (n) {
+      return /apagar|remover|excluir/i.test((n.textContent || '').trim()) &&
+             n.offsetParent !== null;
+    });
+    if (temProduto) return false;
+
+    // A mensagem de vazio só conta se estiver REALMENTE visível
+    var re = /carrinho de compras est[áa] vazio|carrinho est[áa] vazio|seu carrinho est[áa] vazio/i;
+    return $$('*', cart).some(function (n) {
+      return n.children.length === 0 &&
+             re.test((n.textContent || '').trim()) &&
+             n.offsetParent !== null &&
+             n.offsetHeight > 0;
+    });
   }
 
   function qtdPelaSacola() {
