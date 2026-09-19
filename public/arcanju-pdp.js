@@ -25,6 +25,8 @@
     estilizarBotao: true,      // deixa o botão de compra verde e arredondado
     estilizarTamanhos: true,   // deixa o seletor de tamanho em chips
     barraFixa: true,           // botão de comprar fixo no rodapé
+    layoutDesktop: true,       // reorganiza os blocos só em telas grandes
+    larguraDesktop: 1024,      // a partir daqui vale o layout de desktop
     corBotao: '#1FA24A',
     corBotaoHover: '#188B3E',
     espaco: 16,              // espaçamento vertical uniforme (px)
@@ -261,6 +263,33 @@
       box-shadow:none !important; padding:0 !important;
     }
     .apdp-btn-bonito { margin-left:10px !important; }
+
+    /* ---------- Somente desktop ---------- */
+    @media (min-width: ${CFG.larguraDesktop}px) {
+      /* bullets viram selos lado a lado */
+      body.apdp-desktop #apdp-bullets {
+        display:flex !important; flex-wrap:wrap; gap:8px !important;
+        margin:14px 0 !important;
+      }
+      body.apdp-desktop #apdp-bullets li {
+        background:${c.verdeFundo}; border:1px solid rgba(30,142,78,.28);
+        border-radius:999px; padding:7px 13px 7px 11px; font-size:13px;
+        font-weight:600; color:#14713D; gap:7px;
+      }
+      body.apdp-desktop #apdp-bullets li::before {
+        flex:0 0 14px; height:14px; background-size:9px 9px;
+        box-shadow:inset 0 0 0 1.5px ${c.verde};
+      }
+
+      /* cards de frete e promoção depois do botão */
+      body.apdp-desktop #apdp-frete,
+      body.apdp-desktop #apdp-promo { margin:12px 0 !important; }
+
+      /* a barra fixa não faz sentido no desktop */
+      body.apdp-desktop #apdp-sticky { display:none !important; }
+
+      body.apdp-desktop #apdp-selos { margin:14px 0 !important; }
+    }
 
     @media (prefers-reduced-motion: reduce) {
       .apdp-promo__fill, #apdp-sticky { transition:none; }
@@ -749,6 +778,48 @@
   }
 
   /* =========================================================================
+     10 · Layout de desktop (não afeta telas menores)
+     ========================================================================= */
+  var ordemDesktopAplicada = null;
+
+  function aplicarLayoutDesktop() {
+    if (!CFG.layoutDesktop) return;
+
+    var ehDesktop = window.innerWidth >= CFG.larguraDesktop;
+    document.body.classList.toggle('apdp-desktop', ehDesktop);
+    if (ordemDesktopAplicada === ehDesktop) return;
+
+    var frete = $('#apdp-frete');
+    var promo = $('#apdp-promo');
+    var selos = $('#apdp-selos');
+    var botao = acharBotaoComprar();
+    var tamanho = acharSeletorTamanho();
+    if (!frete || !promo || !botao || !tamanho) return;
+
+    if (ehDesktop) {
+      // Ordem: bullets · tamanho · botão · frete · promoção · selos
+      var caixaBotao = containerDaCompra(botao);
+      if (caixaBotao && caixaBotao.parentNode) {
+        var ref = caixaBotao.nextSibling;
+        caixaBotao.parentNode.insertBefore(frete, ref);
+        caixaBotao.parentNode.insertBefore(promo, frete.nextSibling);
+        if (selos) caixaBotao.parentNode.insertBefore(selos, caixaBotao);
+      }
+    } else {
+      // Volta ao layout original de celular
+      if (tamanho.parentNode) {
+        tamanho.parentNode.insertBefore(frete, tamanho);
+        tamanho.parentNode.insertBefore(promo, tamanho);
+      }
+      if (selos) {
+        var cb = containerDaCompra(acharBotaoComprar());
+        if (cb && cb.parentNode) cb.parentNode.insertBefore(selos, cb.nextSibling);
+      }
+    }
+    ordemDesktopAplicada = ehDesktop;
+  }
+
+  /* =========================================================================
      Montagem
      ========================================================================= */
   function montar() {
@@ -776,6 +847,7 @@
     estilizarBotao();
     estilizarTamanhos();
     montarSticky();
+    aplicarLayoutDesktop();
 
     return !!$('#apdp-rating');
   }
@@ -800,6 +872,14 @@
       });
     });
     setInterval(function () { try { estilizarBotao(); } catch (e) {} }, 300);
+
+    var tResize;
+    window.addEventListener('resize', function () {
+      clearTimeout(tResize);
+      tResize = setTimeout(function () {
+        try { aplicarLayoutDesktop(); } catch (e) {}
+      }, 200);
+    });
 
     new MutationObserver(function () {
       if (!$('#apdp-rating')) montar();
