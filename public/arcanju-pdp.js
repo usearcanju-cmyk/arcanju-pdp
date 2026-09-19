@@ -300,6 +300,27 @@
       body.apdp-desktop #apdp-sticky { display:none !important; }
 
       body.apdp-desktop #apdp-selos { margin:14px 0 !important; }
+
+      /* ----------------------------------------------------------------
+         Correção de layout: os widgets da comunidade têm elementos de
+         largura fixa que forçam a coluna do produto a ficar larga demais
+         e derrubam o grid do tema. Aqui só neutralizamos essa largura
+         mínima — nada do visual deles é alterado.
+         ---------------------------------------------------------------- */
+      .arcanju-community, .arcanju-product-info,
+      .arcanju-size-guide, .arcanju-production {
+        min-width: 0 !important;
+        max-width: 100% !important;
+      }
+      .arc-section, .arc-pdp, .arc-size-section,
+      .arc-grid, .arc-head, .arc-tabs-row,
+      .arc-video-carousel, .arc-video-track,
+      .arc-accordion, .arc-accordion-panel,
+      .arc-fit-block, .arc-fit-text,
+      .arc-care-block, .arc-reviews-controls, .arc-size-grid {
+        min-width: 0 !important;
+      }
+      .arc-fit-img { max-width: 100% !important; }
     }
 
     @media (prefers-reduced-motion: reduce) {
