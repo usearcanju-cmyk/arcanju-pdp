@@ -358,7 +358,24 @@
     return temResumo || temBotao;
   }
 
+  // Acha o drawer pelo CONTEÚDO, sem depender das classes do tema
+  function acharCarrinhoPorTexto() {
+    var candidatos = $$('div, section, aside, form').filter(function (n) {
+      if (n.offsetParent === null) return false;
+      if (n.offsetHeight < 320) return false;
+      if (n.closest('header, nav, #header')) return false;
+      var t = n.textContent || '';
+      return /subtotal/i.test(t) && /(iniciar compra|finalizar)/i.test(t);
+    });
+    if (!candidatos.length) return null;
+    candidatos.sort(function (a, b) { return a.offsetHeight - b.offsetHeight; });
+    return candidatos[0];
+  }
+
   function acharCarrinho() {
+    var porTexto = acharCarrinhoPorTexto();
+    if (porTexto) return porTexto;
+
     var candidatos = [];
     ['.js-cart-widget', '#ajax-cart', '[data-component="cart"]', '.cart-widget',
      '.js-modal-cart', '#cart', '.js-cart', '[class*="cart-drawer"]',
@@ -528,7 +545,14 @@
   // Diagnóstico: rode ABR_DEBUG() no console com o carrinho aberto
   window.ABR_DEBUG = function () {
     var cart = acharCarrinho();
+    var porTexto = acharCarrinhoPorTexto();
+    if (cart) {
+      console.log('[ABR] carrinho escolhido:', cart);
+      var anc = acharAncoraTotal(cart);
+      console.log('[ABR] âncora:', anc);
+    }
     return {
+      achadoPorTexto: !!porTexto,
       carrinhoEncontrado: !!cart,
       carrinhoVisivel: !!(cart && cart.offsetParent !== null),
       ancoraEncontrada: !!(cart && acharAncoraTotal(cart)),
