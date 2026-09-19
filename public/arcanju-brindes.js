@@ -51,11 +51,15 @@
     ],
     barraIntervalo: 5000,
 
-    // "Complemente seu pedido" no carrinho — preencha com seus produtos
-    complementos: [
-      // { nome: '', preco: '', precoDe: '', img: '', url: '' }
-    ],
-    complementosTitulo: 'Complemente seu pedido pra ganhar desconto!',
+    // "Toque final": puxa produtos do próprio site, sem lista manual
+    complementosAutomaticos: true,
+    complementosOrigem: '/',        // página de onde tirar os produtos
+    complementosQtd: 2,
+    complementos: [],               // preenchido sozinho; ou fixe produtos aqui
+    complementosTitulo: 'QUEM LEVOU ESSA, LEVOU TAMBÉM 🙏',
+    estilizarBotaoCheckout: true,
+    corBotao: '#1FA24A',
+    corBotaoHover: '#188B3E',
 
     cores: {
       vinho: '#6B1B22',
@@ -289,6 +293,52 @@
     .abr-comp__preco { font-size:12.5px; font-weight:700; color:${c.texto}; padding:0 8px 10px; }
     .abr-comp__preco s { color:${c.cinza}; font-weight:400; font-size:11.5px; margin-left:4px; }
 
+    /* Botão "Iniciar Compra" repaginado — o elemento do tema não é trocado */
+    .abr-checkout-bonito {
+      background:${CFG.corBotao} !important; border-color:${CFG.corBotao} !important;
+      color:#fff !important; border-radius:10px !important; font-weight:700 !important;
+      letter-spacing:.4px !important; text-transform:uppercase !important;
+      min-height:54px !important; font-size:15px !important;
+      box-shadow:0 2px 12px rgba(31,162,74,.26) !important;
+      transition:background .15s ease !important;
+    }
+    .abr-checkout-bonito:hover { background:${CFG.corBotaoHover} !important; }
+    .abr-checkout-bonito[disabled], .abr-checkout-bonito.loading {
+      background:${CFG.corBotao} !important; opacity:1 !important;
+    }
+
+    /* Carrinho mais limpo */
+    form.js-ajax-cart-panel .cart-subtotal,
+    form.js-ajax-cart-panel .cart-total { letter-spacing:.1px; }
+    #abr-cart-wrap { width:100%; max-width:100%; }
+
+    /* Bloco de complementos */
+    .abr-comp { margin:20px 0 8px !important; padding-top:18px;
+      border-top:1px solid ${c.borda}; }
+    .abr-comp__titulo {
+      font-size:11.5px !important; font-weight:700; letter-spacing:.6px;
+      color:${c.texto}; margin-bottom:12px !important; text-align:center;
+    }
+    .abr-comp__lista { gap:12px !important; }
+    .abr-comp__card {
+      border:1px solid ${c.borda} !important; border-radius:12px !important;
+      transition:border-color .15s ease, box-shadow .15s ease;
+    }
+    .abr-comp__card:hover {
+      border-color:${c.vinho} !important;
+      box-shadow:0 3px 12px rgba(0,0,0,.07) !important;
+    }
+    .abr-comp__nome { font-size:12.5px !important; font-weight:600; padding:9px 9px 2px !important; }
+    .abr-comp__preco { font-size:13px !important; padding:0 9px 11px !important; }
+    .abr-comp__btn {
+      display:block; width:calc(100% - 18px); margin:0 9px 10px; padding:9px 0;
+      border:1px solid ${c.vinho}; border-radius:8px; background:#fff;
+      color:${c.vinho}; font-family:inherit; font-size:12px; font-weight:700;
+      letter-spacing:.4px; text-transform:uppercase; cursor:pointer; text-align:center;
+      text-decoration:none;
+    }
+    .abr-comp__btn:hover { background:${c.vinho}; color:#fff; }
+
     @media (prefers-reduced-motion: reduce) {
       #abr-botao .abr-ping { animation:none; }
       .abr-cart-promo__fill { transition:none; }
@@ -516,11 +566,14 @@
   function blocoComplementos() {
     if (!CFG.complementos.length) return '';
     var cards = CFG.complementos.map(function (p) {
-      return '<a class="abr-comp__card" href="' + (p.url || '#') + '">' +
+      return '<div class="abr-comp__card">' +
+        '<a href="' + (p.url || '#') + '">' +
         (p.img ? '<img src="' + urlImg(p.img) + '" alt="" loading="lazy">' : '') +
         '<div class="abr-comp__nome">' + p.nome + '</div>' +
         '<div class="abr-comp__preco">' + p.preco +
-        (p.precoDe ? '<s>' + p.precoDe + '</s>' : '') + '</div></a>';
+        (p.precoDe ? '<s>' + p.precoDe + '</s>' : '') + '</div></a>' +
+        '<a class="abr-comp__btn" href="' + (p.url || '#') + '">Adicionar</a>' +
+        '</div>';
     }).join('');
     return '<div class="abr abr-comp" id="abr-comp">' +
       '<div class="abr-comp__titulo">' + CFG.complementosTitulo + '</div>' +
@@ -538,10 +591,22 @@
     });
   }
 
+  function estilizarCheckout(cart) {
+    if (!CFG.estilizarBotaoCheckout || !cart) return;
+    var botao = $$('a, button, input[type="submit"]', cart).filter(function (b) {
+      return /iniciar compra|finalizar/i.test((b.textContent || b.value || '').trim());
+    })[0];
+    if (botao && !botao.classList.contains('abr-checkout-bonito')) {
+      botao.classList.add('abr-checkout-bonito');
+    }
+  }
+
   function atualizarCarrinho() {
     var cart = acharCarrinho();
     limparForaDoLugar(cart);
     if (!cart || cart.offsetParent === null) { ultimoCarrinho = ''; return; }
+
+    estilizarCheckout(cart);
 
     var q = qtdCamisetas();
     var presente = !!(document.getElementById('abr-cart-wrap') &&
@@ -554,7 +619,7 @@
     var antigo = document.getElementById('abr-cart-wrap');
     if (antigo && antigo.parentNode) antigo.parentNode.removeChild(antigo);
 
-    var html = (q >= CFG.meta ? blocoBrindes() : '') + blocoPromo(q) + blocoComplementos();
+    var html = (q >= CFG.meta ? blocoBrindes() : '') + blocoPromo(q);
     var wrap = el('div', { class: 'abr', id: 'abr-cart-wrap' }, html);
 
     var ancora = acharAncoraTotal(cart);
@@ -607,6 +672,83 @@
       baseImagens: CFG.baseImg
     };
   };
+
+  /* =========================================================================
+     Produtos do próprio site para o bloco "toque final"
+     ========================================================================= */
+  function lerProdutosDaPagina(doc) {
+    var cards = $$('.js-item-product, .js-product-item, [data-store="product-item"], .item-product', doc);
+    var vistos = {};
+    var lista = [];
+
+    cards.forEach(function (card) {
+      var link = card.querySelector('a[href*="/produtos/"], a[href*="/products/"]') ||
+                 card.querySelector('a');
+      if (!link) return;
+      var url = link.href || link.getAttribute('href');
+      if (!url || vistos[url]) return;
+
+      var img = card.querySelector('img');
+      var src = img ? (img.getAttribute('data-src') || img.getAttribute('src') ||
+                       img.getAttribute('data-srcset') || '') : '';
+      if (src.indexOf(',') > -1) src = src.split(',')[0].trim().split(' ')[0];
+      if (src.indexOf('//') === 0) src = 'https:' + src;
+
+      var nomeEl = card.querySelector('.js-item-name, .item-name, [data-store="product-item-name"], h3, h2');
+      var nome = nomeEl ? (nomeEl.textContent || '').trim() : (img ? img.alt : '');
+
+      var precoEl = card.querySelector('.js-price-display, .item-price, [data-store*="price"]');
+      var preco = precoEl ? (precoEl.textContent || '').trim() : '';
+
+      var deEl = card.querySelector('.js-compare-price-display, .item-compare-price, s, del');
+      var precoDe = deEl ? (deEl.textContent || '').trim() : '';
+
+      if (!nome || !src) return;
+      vistos[url] = true;
+      lista.push({ nome: nome, preco: preco, precoDe: precoDe, img: src, url: url });
+    });
+
+    return lista;
+  }
+
+  function carregarComplementos(cb) {
+    if (!CFG.complementosAutomaticos || CFG.complementos.length) { cb && cb(); return; }
+
+    // cache por sessão, para não buscar a cada abertura do carrinho
+    try {
+      var guardado = sessionStorage.getItem('abr_complementos');
+      if (guardado) {
+        CFG.complementos = JSON.parse(guardado);
+        cb && cb();
+        return;
+      }
+    } catch (e) {}
+
+    // 1) tenta na própria página (produtos similares / mais vendidas)
+    var daPagina = lerProdutosDaPagina(document).filter(function (p) {
+      return p.url.indexOf(window.location.pathname) === -1;
+    });
+
+    function finalizar(lista) {
+      CFG.complementos = lista.slice(0, CFG.complementosQtd);
+      try {
+        sessionStorage.setItem('abr_complementos', JSON.stringify(CFG.complementos));
+      } catch (e) {}
+      if (CFG.debug) console.log('[ABR] complementos:', CFG.complementos);
+      cb && cb();
+    }
+
+    if (daPagina.length >= CFG.complementosQtd) { finalizar(daPagina); return; }
+
+    // 2) senão, busca na página de origem
+    fetch(CFG.complementosOrigem, { credentials: 'same-origin' })
+      .then(function (r) { return r.text(); })
+      .then(function (html) {
+        var doc = new DOMParser().parseFromString(html, 'text/html');
+        finalizar(daPagina.concat(lerProdutosDaPagina(doc)));
+      })
+      .catch(function () { finalizar(daPagina); });
+  }
 
   /* =========================================================================
      Âncora para "Camisetas Mais Vendidas"
@@ -693,6 +835,10 @@
     montarBarra();
     montarBotao();
     ativarAncora();
+    carregarComplementos(function () {
+      var n = $('#abr-comp');
+      if (n && n.parentNode) n.parentNode.removeChild(n);
+    });
 
     setInterval(function () { try { atualizarCarrinho(); } catch (e) {} }, 500);
     observarDocumento();
