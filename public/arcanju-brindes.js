@@ -96,22 +96,44 @@
     return CFG.baseImg + nome;
   }
 
+  function carrinhoVazio(cart) {
+    if (!cart) return false;
+    return /carrinho de compras est[áa] vazio|carrinho est[áa] vazio|seu carrinho est[áa] vazio/i
+      .test(cart.textContent || '');
+  }
+
+  function qtdPelaSacola() {
+    var badge = firstOf(['.js-cart-widget-amount', '[data-component="cart-amount"]',
+                         '.cart-amount', '.js-cart-quantity']);
+    if (!badge) return null;
+    var n = parseInt((badge.textContent || '').replace(/\D/g, ''), 10);
+    return isNaN(n) ? null : n;
+  }
+
   function qtdCamisetas() {
+    // 0) Carrinho aberto e explicitamente vazio
+    var aberto = acharCarrinho();
+    if (aberto && aberto.offsetParent !== null && carrinhoVazio(aberto)) return 0;
+
     // 1) Campos de quantidade dentro do carrinho aberto
-    var cart = acharCarrinho();
+    var cart = aberto;
     if (cart && cart.offsetParent !== null) {
       var campos = $$('input', cart).filter(function (i) {
         var nome = (i.name || '') + ' ' + (i.className || '');
         return /quant|qty/i.test(nome) || i.type === 'number';
       });
       if (campos.length) {
-        var soma = campos.reduce(function (s, i) {
+        return campos.reduce(function (s, i) {
           var v = parseInt(i.value, 10);
           return s + (isNaN(v) ? 0 : v);
         }, 0);
-        if (soma > 0) return soma;
       }
+      return 0;   // drawer aberto sem itens
     }
+
+    // 1.5) Contador da sacola no cabeçalho — sempre confiável
+    var badge = qtdPelaSacola();
+    if (badge !== null) return badge;
 
     // 2) Objeto da loja
     try {
@@ -571,12 +593,65 @@
   };
 
   /* =========================================================================
+     Âncora para "Camisetas Mais Vendidas"
+     Use o link  #mais-vendidas  em qualquer botão ou banner
+     ========================================================================= */
+  function acharMaisVendidas() {
+    var titulo = $$('h1, h2, h3, .section-title, [class*="title"]').filter(function (n) {
+      return /mais\s*vendid/i.test((n.textContent || '').trim()) && n.offsetParent !== null;
+    })[0];
+    if (!titulo) return null;
+    return titulo.closest('section, .container, .row, div') || titulo;
+  }
+
+  function rolarParaMaisVendidas() {
+    var alvo = acharMaisVendidas();
+    if (!alvo) return false;
+    var y = alvo.getBoundingClientRect().top + window.pageYOffset - 70;
+    window.scrollTo({ top: y, behavior: 'smooth' });
+    return true;
+  }
+
+  function ativarAncora() {
+    // Captura o clique antes do carrossel/slider engolir o evento
+    ['pointerup', 'click'].forEach(function (tipo) {
+      document.addEventListener(tipo, function (e) {
+        var alvo = e.target;
+        if (!alvo || !alvo.closest) return;
+        var a = alvo.closest('a[href*="mais-vendidas"], [data-scroll="mais-vendidas"]');
+        if (!a) return;
+        if (CFG.debug) console.log('[ABR] clique na âncora', a);
+        e.preventDefault();
+        e.stopPropagation();
+        rolarParaMaisVendidas();
+      }, true); // fase de captura
+    });
+
+    // Chegou pela URL com #mais-vendidas (vindo de outra página)
+    if (/#mais-vendidas/.test(window.location.hash)) {
+      var tentativas = 0;
+      var t = setInterval(function () {
+        tentativas++;
+        if (rolarParaMaisVendidas() || tentativas > 20) clearInterval(t);
+      }, 300);
+    }
+  }
+
+  // Teste manual: rode ABR_SCROLL() no console
+  window.ABR_SCROLL = function () {
+    var alvo = acharMaisVendidas();
+    console.log('[ABR] seção encontrada:', alvo);
+    return rolarParaMaisVendidas();
+  };
+
+  /* =========================================================================
      Boot
      ========================================================================= */
   function iniciar() {
     injetarCSS();
     montarBarra();
     montarBotao();
+    ativarAncora();
 
     setInterval(function () { try { atualizarCarrinho(); } catch (e) {} }, 500);
     observarDocumento();

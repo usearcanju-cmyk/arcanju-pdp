@@ -274,16 +274,18 @@
      Carrinho
      ========================================================================= */
   function qtdNoCarrinho() {
+    // O contador da sacola é a fonte mais confiável: LS.cart fica defasado
+    var badge = firstOf(['.js-cart-widget-amount', '[data-component="cart-amount"]',
+                         '.cart-amount', '.js-cart-quantity']);
+    if (badge) {
+      var n = parseInt((badge.textContent || '').replace(/\D/g, ''), 10);
+      if (!isNaN(n)) return n;
+    }
     try {
       if (window.LS && LS.cart && Array.isArray(LS.cart.items)) {
         return LS.cart.items.reduce(function (s, i) { return s + (i.quantity || 0); }, 0);
       }
     } catch (e) {}
-    var badge = firstOf(['.js-cart-widget-amount', '[data-component="cart-amount"]', '.cart-amount']);
-    if (badge) {
-      var n = parseInt((badge.textContent || '').replace(/\D/g, ''), 10);
-      if (!isNaN(n)) return n;
-    }
     return 0;
   }
 
