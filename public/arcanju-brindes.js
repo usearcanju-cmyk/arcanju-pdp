@@ -17,7 +17,7 @@
     debug: true,   // true = escreve no console o que está acontecendo
 
     titulo: 'Leve 2 camisetas e ganhe uma sacolinha e uma capelinha de brinde!',
-    subtitulo: 'Além de R$ 29 de desconto e frete grátis.',
+    subtitulo: 'Além de R$ 15 de desconto e frete grátis.',
     rodapeModal: 'Uma destas capelinhas vai na sua sacola — a escolha é uma surpresa nossa.',
 
     // Imagens servidas pela Vercel, a partir da pasta public/img/
@@ -528,10 +528,10 @@
   function blocoPromo(q) {
     var ok = q >= CFG.meta;
     var txt = ok
-      ? '<b>Você ganhou capelinha, sacolinha, frete grátis e R$ 29 de desconto</b>'
+      ? '<b>Você ganhou capelinha, sacolinha, frete grátis e R$ 15 de desconto</b>'
       : (q === CFG.meta - 1
-          ? 'Falta 1 camiseta para ganhar <b>capelinha, sacolinha, frete grátis e R$ 29 de desconto</b>'
-          : 'Leve 2 camisetas e ganhe <b>capelinha, sacolinha, frete grátis e R$ 29 de desconto</b>');
+          ? 'Falta 1 camiseta para ganhar <b>capelinha, sacolinha, frete grátis e R$ 15 de desconto</b>'
+          : 'Leve 2 camisetas e ganhe <b>capelinha, sacolinha, frete grátis e R$ 15 de desconto</b>');
     return '<div class="abr abr-cart-promo' + (ok ? ' abr-cart-promo--ok' : '') + '" id="abr-cart-promo">' +
       '<div class="abr-cart-promo__txt">' + txt + '</div>' +
       '<div class="abr-cart-promo__barra"><div class="abr-cart-promo__fill" style="width:' +

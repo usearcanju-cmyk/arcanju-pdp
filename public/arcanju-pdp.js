@@ -32,9 +32,9 @@
     espaco: 16,              // espaçamento vertical uniforme (px)
     promo: {
       meta: 2,
-      textoVazio: 'Leve 2 camisetas e ganhe frete grátis, capelinha, sacolinha e R$ 29 de desconto',
-      textoFalta1: 'Falta 1 camiseta para liberar frete grátis, capelinha, sacolinha e R$ 29 de desconto',
-      textoCompleto: 'Benefícios liberados: frete grátis, capelinha, sacolinha e R$ 29 de desconto',
+      textoVazio: 'Leve 2 camisetas e ganhe frete grátis, capelinha, sacolinha e R$ 15 de desconto',
+      textoFalta1: 'Falta 1 camiseta para liberar frete grátis, capelinha, sacolinha e R$ 15 de desconto',
+      textoCompleto: 'Benefícios liberados: frete grátis, capelinha, sacolinha e R$ 15 de desconto',
       freteGratis: 'Você ganhou frete grátis na promoção de 2 camisetas'
     },
     cores: {
